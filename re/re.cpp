@@ -267,22 +267,27 @@ private:
 
 class Char {
 public:
-    Char()
-        : encode_(0) {
-    }
     Char(char c)
-        : encode_(c) {
+        : encode_(c - 'a' + 1) {
         assert(c >= 'a' && c <= 'z');
     }
     operator uint8_t() const {
         return encode_;
     }
+    char ToChar() const {
+        assert(encode_ != 0);
+        return encode_ + 'a';
+    }
     static size_t CharTypeCount() {
-        return 26;
+        return 27;
     }
     static const Char epsilon;
 
 private:
+    Char()
+        : encode_(0) {
+    }
+
     uint8_t encode_;
 };
 const Char Char::epsilon;
@@ -370,46 +375,86 @@ struct StatePort {
 class MatchResult {
 public:
     MatchResult(const std::string & origin)
-        : origin_(origin)
+        : capture_(origin)
         , matched_(false) {
     }
     void SetMatched() {
         matched_ = true;
     }
-    void BeginGroup(size_t group_id, size_t pos) {
-        if (groups_.find(group_id) == groups_.end())
-        {
-            groups_[group_id].first = pos;
-            groups_[group_id].second = 0;
-        }
-        else
-        { assert(groups_[group_id].second == pos); }
-    }
-    void EndGroup(size_t group_id, size_t pos) {
-        assert(groups_.find(group_id) != groups_.end());
-        groups_[group_id].second = pos;
-    }
-
     bool Matched() const {
         return matched_;
     }
-    size_t MaxGroupId() const {
-        assert(!groups_.empty());
-        return groups_.crbegin()->first;
-    }
-    std::string Group(size_t i) const {
-        assert(matched_);
-        return groups_.count(i)
-            ? origin_.substr(groups_.at(i).first,
-                             groups_.at(i).second - groups_.at(i).first)
-            : "";
+    Capture & capture() {
+        return capture_;
     }
 
 private:
-    const std::string & origin_;
+    Capture capture_;
     bool matched_;
-    std::map<size_t, std::pair<size_t, size_t>> groups_;
 };
+
+std::map<size_t, Capture::ActionType> MergeStateActions(
+    const std::set<State *> & states) {
+    std::map<size_t, Capture::ActionType> actions;
+    for (State * s : states)
+    {
+        for (auto kv : s->GetActions())
+        {
+            size_t group_id = kv.first;
+            Capture::ActionType type = kv.second;
+            if (actions.find(group_id) == actions.end())
+            {
+                actions[group_id] = type;
+            }
+            else
+            {
+                assert(
+                    (actions[group_id] == Capture::B && type == Capture::E) ||
+                    (actions[group_id] == Capture::E && type == Capture::B));
+                actions[group_id] = Capture::BE;
+            }
+        }
+    }
+    return actions;
+}
+
+std::map<size_t, Capture::Event> MakeStateEvents(
+    const std::map<size_t, Capture::ActionType> & actions, size_t pos) {
+    std::map<size_t, Capture::Event> events;
+    for (auto kv : actions)
+    {
+        size_t group_id = kv.first;
+        Capture::ActionType type = kv.second;
+        events[group_id] = {group_id, type, pos};
+    }
+    return events;
+}
+
+std::map<size_t, Capture::Event> MakeStateEvents(
+    const std::set<State *> & states, size_t pos) {
+    std::map<size_t, Capture::Event> events;
+    for (State * s : states)
+    {
+        for (auto kv : s->GetActions())
+        {
+            size_t group_id = kv.first;
+            Capture::ActionType type = kv.second;
+            if (events.find(group_id) == events.end())
+            {
+                events[group_id] = {group_id, type, pos};
+            }
+            else
+            {
+                assert((events[group_id].type == Capture::B &&
+                        type == Capture::E) ||
+                       (events[group_id].type == Capture::E &&
+                        type == Capture::B));
+                events[group_id].type = Capture::BE;
+            }
+        }
+    }
+    return events;
+}
 
 class DFA {
     friend class FABuilder;
@@ -422,13 +467,18 @@ public:
         size_t pos = 0;
         for (char c : str)
         {
+            result.capture().AddEvents(MakeStateEvents(actions[s], pos));
             s = GetTransition(s, c);
             if (s == -1)
                 return MatchResult(str);
             ++pos;
         }
+        result.capture().AddEvents(MakeStateEvents(actions[s], pos));
         if (IsTerminal(s))
+        {
+            result.capture().Compute();
             result.SetMatched();
+        }
         return result;
     }
 
@@ -461,9 +511,10 @@ public:
     }
 
 private:
-    int AddState() {
+    int AddState(const std::set<State *> & states) {
         transition.insert(transition.end(), Char::CharTypeCount(), -1);
         is_terminal.push_back(false);
+        actions.push_back(MergeStateActions(states));
         return (int)(is_terminal.size() - 1);
     }
     void SetTransition(int from, Char c, int to) {
@@ -473,10 +524,10 @@ private:
                (to + 1) * Char::CharTypeCount() <= (int)transition.size());
         transition[from * Char::CharTypeCount() + c] = to;
     }
-    int GetTransition(int state, char c) const {
+    int GetTransition(int state, Char c) const {
         assert(state >= 0 &&
                (state + 1) * Char::CharTypeCount() <= (int)transition.size());
-        return transition[state * 26 + (c - 'a')];
+        return transition[state * Char::CharTypeCount() + c];
     }
     void SetTerminal(int state) {
         assert(state >= 0 &&
@@ -489,6 +540,7 @@ private:
 
     std::vector<int> transition;
     std::vector<bool> is_terminal;
+    std::vector<std::map<size_t, Capture::ActionType>> actions;
 };
 
 class FABuilder {
@@ -626,7 +678,7 @@ public:
         std::set<State *> s1, s2;
 
         std::map<H, int> sidmap;
-        sidmap[H(q.front())] = dfa.AddState();
+        sidmap[H(q.front())] = dfa.AddState(q.front());
         while (!q.empty())
         {
             s1 = q.front(), q.pop_front();
@@ -654,7 +706,7 @@ public:
 
                 if (sidmap.find(H(s2)) == sidmap.end())
                 {
-                    sidmap[H(s2)] = dfa.AddState();
+                    sidmap[H(s2)] = dfa.AddState(s2);
                     q.push_back(s2);
                 }
                 int to = sidmap[H(s2)];
@@ -671,32 +723,6 @@ private:
     std::vector<size_t> group_ids_;
     size_t group_idgen_;
 };
-
-std::map<size_t, Capture::Event> MakeStateEvents(
-    const std::set<State *> & states, size_t pos) {
-    std::map<size_t, Capture::Event> events;
-    for (State * s : states)
-    {
-        for (auto kv : s->GetActions())
-        {
-            size_t group_id = kv.first;
-            Capture::ActionType type = kv.second;
-            if (events.find(group_id) == events.end())
-            {
-                events[group_id] = {group_id, type, pos};
-            }
-            else
-            {
-                assert((events[group_id].type == Capture::B &&
-                        type == Capture::E) ||
-                       (events[group_id].type == Capture::E &&
-                        type == Capture::B));
-                events[group_id].type = Capture::BE;
-            }
-        }
-    }
-    return events;
-}
 
 bool Match(StatePort enfa, std::string str) {
     Capture capture(str);
@@ -721,7 +747,6 @@ bool Match(StatePort enfa, std::string str) {
     }
     capture.AddEvents(MakeStateEvents(set1, pos));
 
-    std::cout << capture.DebugString() << std::endl;
     capture.Compute();
     std::cout << capture.DebugString() << std::endl;
 
@@ -737,7 +762,7 @@ int main() {
     std::string regex = "((a(b)*c|d(e*)f)*)";
     // std::string regex = "((a*)|(b*)|(c*))";
     StatePort enfa = FABuilder::Compile(regex);
-    // DFA dfa = FABuilder::Compile(enfa);
+    DFA dfa = FABuilder::Compile(enfa);
     // std::cout << dfa.DebugString() << std::endl;
 
     std::cout << "pattern: " << regex << std::endl;
@@ -745,17 +770,10 @@ int main() {
     {
         std::cout << "ENFA: " << (Match(enfa, line) ? "ok." : "reject.")
                   << std::endl;
-        // MatchResult m = dfa.Match(line);
-        // std::cout << "DFA:  " << (m.Matched() ? "ok." : "reject.") <<
-        // std::endl; if (m.Matched())
-        //{
-        //    for (size_t i = 0; i <= m.MaxGroupId(); ++i)
-        //    {
-        //        std::cout << std::ends << "Group " << i << ": \"" <<
-        //        m.Group(i)
-        //                  << "\"" << std::endl;
-        //    }
-        //}
+        MatchResult m = dfa.Match(line);
+        if (m.Matched())
+            std::cout << m.capture().DebugString() << std::endl;
+        std::cout << "DFA:  " << (m.Matched() ? "ok." : "reject.") << std::endl;
     }
 
     return 0;
