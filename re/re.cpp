@@ -52,14 +52,14 @@ static int idgen = 0;
 
 class Capture {
 public:
-    enum Type { BEGIN, END };
+    enum ActionType { B, E, BE };
     struct Action {
         size_t group_id;
-        Type type;
+        ActionType type;
     };
     struct Event {
         size_t group_id;
-        Type type;
+        ActionType type;
         size_t pos;
     };
 
@@ -68,20 +68,8 @@ public:
         : origin_(origin) {
     }
 
-    void AddEvents(const std::vector<Event> & events) {
-        std::map<size_t, std::vector<Event>> m;
-        for (const Event & e : events)
-        {
-            m[e.group_id].push_back(e);
-            // BE, B, E
-            assert(m[e.group_id].size() <= 2);
-            if (m[e.group_id].size() == 2 && e.type == BEGIN)
-            {
-                assert(m[e.group_id][0].type == END);
-                std::swap(m[e.group_id][0], m[e.group_id][1]);
-            }
-        }
-        for (const auto & kv : m)
+    void AddEvents(const std::map<size_t, Event> & events) {
+        for (const auto & kv : events)
         {
             events_[kv.first].emplace_back(kv.second);
         }
@@ -93,89 +81,65 @@ public:
 
         for (const auto & kv : events_)
         {
-            if (kv.second.size() < 2)
+            const auto & events = kv.second;
+
+            if (events.size() < 2)
                 continue;
 
-            // pattern 0 (a)  : B, E
-            // pattern 1 (a)* : B,  BE, BE, ...
-            // pattern 2 (a*) : BE,  E,  E, ...
-            // pattern 3 (a*)*: BE, BE, BE, ...
-            int pattern = -1;
-#define IS_BE(x) ((x).size() == 2 && (x)[0].type == BEGIN && (x)[1].type == END)
-#define IS_B(x) ((x).size() == 1 && (x)[0].type == BEGIN)
-#define IS_E(x) ((x).size() == 1 && (x)[0].type == END)
-            auto seq = kv.second.cbegin();
-            if (IS_B(*seq))
-            {
-                ++seq;
-                if (IS_E(*seq))
-                {
-                    assert(++seq == kv.second.cend());
-                    pattern = 0;
-                }
-                else
-                {
-                    assert(IS_BE(*seq));
-                    while (++seq != kv.second.cend())
-                    {
-                        assert(IS_BE(*seq));
-                    }
-                    pattern = 1;
-                }
-            }
-            else
-            {
-                assert(IS_BE(*seq));
-                ++seq;
-                if (IS_E(*seq))
-                {
-                    while (++seq != kv.second.cend())
-                    {
-                        assert(IS_E(*seq));
-                    }
-                    pattern = 2;
-                }
-                else
-                {
-                    assert(IS_BE(*seq));
-                    while (++seq != kv.second.cend())
-                    {
-                        assert(IS_BE(*seq));
-                    }
-                    pattern = 3;
-                }
-            }
-#undef IS_BE
-#undef IS_B
-#undef IS_E
-            assert(pattern != -1);
+            // pattern 0      : no capture
+            // pattern 1 (a)  : (B,E)*,B | (B,E)+
+            // pattern 2 (a)* : (B+,BE*)+
+            // pattern 3 (a*) : (BE+,E*)+
+            int pattern = EventPattern(events);
+            assert(pattern >= 0 && pattern <= 3);
+            if (pattern == 0)
+                continue;
 
             size_t group_id = kv.first;
-            auto & evv = kv.second;
-            size_t b, e;
+            size_t start, end;
             switch (pattern)
             {
-                case 0: // pattern 0 (a)  : B, E
-                    b = evv.front()[0].pos;
-                    e = evv.back()[0].pos;
-                    captured_[group_id].push_back(origin_.substr(b, e - b));
-                    break;
-                case 1: // pattern 1 (a)* : B,  BE, BE, ...
-                    for (b = 0; b + 1 < evv.size(); ++b)
+                case 1: // pattern 1 (a)  : (B,E)*,B | (B,E)+
+                    for (size_t i = 0; i + 1 < events.size(); i += 2)
                     {
-                        captured_[group_id].push_back(origin_.substr(
-                            evv[b][0].pos, evv[b + 1][0].pos - evv[b][0].pos));
+                        start = events[i].pos;
+                        end = events[i + 1].pos;
+                        captured_[group_id].push_back(
+                            origin_.substr(start, end - start));
                     }
                     break;
-                case 2: // pattern 2 (a*) : BE,  E,  E, ...
-                    b = evv.front()[0].pos;
-                    e = evv.back()[0].pos;
-                    captured_[group_id].push_back(origin_.substr(b, e - b));
+                case 2: // pattern 2 (a)* : (B+,BE*)+
+                    for (size_t i = 0; i < events.size();)
+                    {
+                        while (i < events.size() && events[i].type == B)
+                            ++i;
+                        while (i < events.size() && events[i].type == BE)
+                        {
+                            start = events[i - 1].pos;
+                            end = events[i].pos;
+                            captured_[group_id].push_back(
+                                origin_.substr(start, end - start));
+                            ++i;
+                        }
+                    }
                     break;
-                case 3: // pattern 3 (a*)*: BE, BE, BE, ...
-                    b = evv.front()[0].pos;
-                    e = evv.back()[1].pos;
-                    captured_[group_id].push_back(origin_.substr(b, e - b));
+                case 3: // pattern 3 (a*) : (BE+,E*)+
+                    for (size_t i = 0; i < events.size();)
+                    {
+                        while (i < events.size() && events[i].type == BE)
+                            ++i;
+                        start = i;
+                        while (i < events.size() && events[i].type == E)
+                            ++i;
+                        end = i;
+                        if (end > start)
+                        {
+                            start = events[start - 1].pos;
+                            end = events[end - 1].pos;
+                            captured_[group_id].push_back(
+                                origin_.substr(start, end - start));
+                        }
+                    }
                     break;
                 default:
                     break;
@@ -185,21 +149,29 @@ public:
 
     std::string DebugString() const {
         std::string s;
-        for (const auto & evv : events_)
+        for (const auto & events : events_)
         {
-            s += std::to_string(evv.first) + ":";
-            for (const auto & ev : evv.second)
+            s += std::to_string(events.first) + ":";
+            for (const auto & e : events.second)
             {
                 s += " {";
-                for (const auto & e : ev)
+                assert(e.group_id == events.first);
+                switch (e.type)
                 {
-                    assert(e.group_id == evv.first);
-                    s += (e.type == BEGIN ? "B" : "E");
-                    s += std::to_string(e.pos);
-                    s += ",";
+                    case B:
+                        s += "B";
+                        break;
+                    case E:
+                        s += "E";
+                        break;
+                    case BE:
+                        s += "BE";
+                        break;
+                    default:
+                        break;
                 }
-                if (s.back() == ',')
-                    s.pop_back();
+                s += ",";
+                s += std::to_string(e.pos);
                 s += "}";
             }
             s += "\n";
@@ -219,7 +191,76 @@ public:
     }
 
 private:
-    std::map<size_t, std::vector<std::vector<Event>>> events_;
+    int EventPattern(const std::vector<Event> & events) {
+        // pattern -1     : invalid capture
+        // pattern 0      : no capture
+        // pattern 1 (a)  : (B,E)*,B | (B,E)+
+        // pattern 2 (a)* : (B+,BE*)+
+        // pattern 3 (a*) : (BE+,E*)+
+        // pattern 4 (a*)*: BE+           <== TODO: can't compute capture.
+        int pattern = -1;
+        if (events.size() < 2)
+        {
+            pattern = 0;
+        }
+        else
+        {
+            if (events[0].type == B)
+            {
+                if (events[1].type == E)
+                {
+                    pattern = 1;
+                    for (size_t i = 2; i < events.size(); ++i)
+                    {
+                        if (events[i].type != (i % 2 == 0 ? B : E))
+                        {
+                            pattern = -1;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    pattern = 2;
+                    bool has_capture = false;
+                    for (size_t i = 1; i < events.size(); ++i)
+                    {
+                        if (events[i].type == BE)
+                        {
+                            has_capture = true;
+                        }
+                        if (events[i].type != B && events[i].type != BE)
+                        {
+                            pattern = -1;
+                            break;
+                        }
+                    }
+                    if (!has_capture)
+                        pattern = 0;
+                }
+            }
+            else
+            {
+                pattern = 3;
+                bool has_capture = false;
+                for (size_t i = 1; i < events.size(); ++i)
+                {
+                    if (events[i].type == E)
+                    {
+                        has_capture = true;
+                    }
+                    else if (events[i].type == B)
+                    {
+                        pattern = -1;
+                        break;
+                    }
+                }
+            }
+        }
+        return pattern;
+    }
+
+    std::map<size_t, std::vector<Event>> events_;
     std::map<size_t, std::vector<std::string>> captured_;
     const std::string & origin_;
 };
@@ -247,12 +288,6 @@ private:
 const Char Char::epsilon;
 
 class State {
-    int id_;
-    bool is_terminal_;
-    std::map<Char, std::set<State *>> transition_;
-    std::set<State *> eclosure_;
-    std::vector<Capture::Action> actions_;
-
 public:
     State()
         : id_(idgen++)
@@ -312,17 +347,19 @@ public:
         return to_closure;
     }
     void AddAction(Capture::Action action) {
-        actions_.push_back(action);
+        assert(actions_.find(action.group_id) == actions_.end());
+        actions_[action.group_id] = action.type;
     }
-    std::vector<Capture::Event> GetEvents(size_t pos) const {
-        std::vector<Capture::Event> actions;
-        actions.reserve(actions_.size());
-        for (const auto & action : actions_)
-        {
-            actions.push_back({action.group_id, action.type, pos});
-        }
-        return actions;
+    const std::map<size_t, Capture::ActionType> & GetActions() const {
+        return actions_;
     }
+
+private:
+    int id_;
+    bool is_terminal_;
+    std::map<Char, std::set<State *>> transition_;
+    std::set<State *> eclosure_;
+    std::map<size_t, Capture::ActionType> actions_;
 };
 
 struct StatePort {
@@ -455,11 +492,6 @@ private:
 };
 
 class FABuilder {
-    std::vector<StatePort> ports_;
-    std::vector<size_t> pos_;
-    std::vector<size_t> group_ids_;
-    size_t group_idgen_;
-
 public:
     FABuilder()
         : group_idgen_(0) {
@@ -493,8 +525,8 @@ public:
 
         State * a = new State();
         State * b = new State();
-        a->AddAction({group_id, Capture::BEGIN});
-        b->AddAction({group_id, Capture::END});
+        a->AddAction({group_id, Capture::B});
+        b->AddAction({group_id, Capture::E});
         a->AddTransition(Char::epsilon, ports_.back().in);
         ports_.back().out->AddTransition(Char::epsilon, b);
         ports_.back() = {a, b};
@@ -632,7 +664,39 @@ public:
 
         return dfa;
     }
+
+private:
+    std::vector<StatePort> ports_;
+    std::vector<size_t> pos_;
+    std::vector<size_t> group_ids_;
+    size_t group_idgen_;
 };
+
+std::map<size_t, Capture::Event> MakeStateEvents(
+    const std::set<State *> & states, size_t pos) {
+    std::map<size_t, Capture::Event> events;
+    for (State * s : states)
+    {
+        for (auto kv : s->GetActions())
+        {
+            size_t group_id = kv.first;
+            Capture::ActionType type = kv.second;
+            if (events.find(group_id) == events.end())
+            {
+                events[group_id] = {group_id, type, pos};
+            }
+            else
+            {
+                assert((events[group_id].type == Capture::B &&
+                        type == Capture::E) ||
+                       (events[group_id].type == Capture::E &&
+                        type == Capture::B));
+                events[group_id].type = Capture::BE;
+            }
+        }
+    }
+    return events;
+}
 
 bool Match(StatePort enfa, std::string str) {
     Capture capture(str);
@@ -645,13 +709,7 @@ bool Match(StatePort enfa, std::string str) {
     {
         if (set1.empty())
             break;
-        std::vector<Capture::Event> events;
-        for (State * s : set1)
-        {
-            auto se = s->GetEvents(pos);
-            events.insert(events.end(), se.begin(), se.end());
-        }
-        capture.AddEvents(events);
+        capture.AddEvents(MakeStateEvents(set1, pos));
         for (State * s : set1)
         {
             auto transition = s->GetTransition(c);
@@ -661,13 +719,7 @@ bool Match(StatePort enfa, std::string str) {
         set2.clear();
         ++pos;
     }
-    std::vector<Capture::Event> events;
-    for (State * s : set1)
-    {
-        auto se = s->GetEvents(pos);
-        events.insert(events.end(), se.begin(), se.end());
-    }
-    capture.AddEvents(events);
+    capture.AddEvents(MakeStateEvents(set1, pos));
 
     std::cout << capture.DebugString() << std::endl;
     capture.Compute();
@@ -681,7 +733,8 @@ bool Match(StatePort enfa, std::string str) {
 int main() {
     // std::string regex = "((a)*)";
     // std::string regex = "((a*)|(a)*|(a*)*)";
-    std::string regex = "((a(b*)c|d(e*)f)*)";
+    // std::string regex = "((a(b*)c)*)";
+    std::string regex = "((a(b)*c|d(e*)f)*)";
     // std::string regex = "((a*)|(b*)|(c*))";
     StatePort enfa = FABuilder::Compile(regex);
     // DFA dfa = FABuilder::Compile(enfa);
