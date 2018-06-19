@@ -63,6 +63,83 @@ public:
         size_t pos;
     };
 
+    class Group {
+    public:
+        void AddEvent(Event e) {
+            // mode 0      : init
+            // mode 1 (a)  : (B,E)*,B | (B,E)+
+            // mode 2 (a)* : (B+,BE*)+
+            // mode 3 (a*) : (BE+,E*)+
+            // mode 4 (a*)*: BE+
+            switch (mode_)
+            {
+                case 0:
+                    assert(e.type != E);
+                    mode_ = (e.type == B ? 12 : 3);
+                    start_ = e;
+                    break;
+                case 12:
+                    if (e.type == E)
+                    {
+                        mode_ = 1;
+                        captured_.emplace_back(start_.pos, e.pos);
+                    }
+                    else
+                    {
+                        mode_ = 2;
+                        if (e.type == BE)
+                            captured_.emplace_back(start_.pos, e.pos);
+                        start_ = e;
+                    }
+                    break;
+                case 1:
+                    assert(e.type != BE);
+                    if (e.type == B)
+                    {
+                        assert(last_.type == E);
+                        start_ = e;
+                    }
+                    else
+                    {
+                        assert(last_.type == B);
+                        captured_.emplace_back(start_.pos, e.pos);
+                    }
+                    break;
+                case 2:
+                    assert(e.type != E);
+                    if (e.type == BE)
+                        captured_.emplace_back(start_.pos, e.pos);
+                    start_ = e;
+                    break;
+                case 3:
+                    assert(e.type != B);
+                    if (e.type == BE)
+                        start_ = e;
+                    else
+                        (last_.type == BE
+                             ? (void)(captured_.emplace_back(start_.pos, e.pos))
+                             : (void)(captured_.back().second = e.pos));
+                    break;
+                default:
+                    assert(false);
+                    break;
+            }
+            last_ = e;
+        }
+        size_t Size() const {
+            return captured_.size();
+        }
+        const std::vector<std::pair<size_t, size_t>> & captured() const {
+            return captured_;
+        }
+
+    private:
+        int mode_;
+        Event start_;
+        Event last_;
+        std::vector<std::pair<size_t, size_t>> captured_;
+    };
+
 public:
     Capture(const std::string & origin)
         : origin_(origin) {
@@ -71,118 +148,19 @@ public:
     void AddEvents(const std::map<size_t, Event> & events) {
         for (const auto & kv : events)
         {
-            events_[kv.first].emplace_back(kv.second);
-        }
-    }
-
-    void Compute() {
-        if (!captured_.empty())
-            return;
-
-        for (const auto & kv : events_)
-        {
-            const auto & events = kv.second;
-
-            if (events.size() < 2)
-                continue;
-
-            // pattern 0      : no capture
-            // pattern 1 (a)  : (B,E)*,B | (B,E)+
-            // pattern 2 (a)* : (B+,BE*)+
-            // pattern 3 (a*) : (BE+,E*)+
-            int pattern = EventPattern(events);
-            assert(pattern >= 0 && pattern <= 3);
-            if (pattern == 0)
-                continue;
-
-            size_t group_id = kv.first;
-            size_t start, end;
-            switch (pattern)
-            {
-                case 1: // pattern 1 (a)  : (B,E)*,B | (B,E)+
-                    for (size_t i = 0; i + 1 < events.size(); i += 2)
-                    {
-                        start = events[i].pos;
-                        end = events[i + 1].pos;
-                        captured_[group_id].push_back(
-                            origin_.substr(start, end - start));
-                    }
-                    break;
-                case 2: // pattern 2 (a)* : (B+,BE*)+
-                    for (size_t i = 0; i < events.size();)
-                    {
-                        while (i < events.size() && events[i].type == B)
-                            ++i;
-                        while (i < events.size() && events[i].type == BE)
-                        {
-                            start = events[i - 1].pos;
-                            end = events[i].pos;
-                            captured_[group_id].push_back(
-                                origin_.substr(start, end - start));
-                            ++i;
-                        }
-                    }
-                    break;
-                case 3: // pattern 3 (a*) : (BE+,E*)+
-                    for (size_t i = 0; i < events.size();)
-                    {
-                        while (i < events.size() && events[i].type == BE)
-                            ++i;
-                        start = i;
-                        while (i < events.size() && events[i].type == E)
-                            ++i;
-                        end = i;
-                        if (end > start)
-                        {
-                            start = events[start - 1].pos;
-                            end = events[end - 1].pos;
-                            captured_[group_id].push_back(
-                                origin_.substr(start, end - start));
-                        }
-                    }
-                    break;
-                default:
-                    break;
-            }
+            capture_groups_[kv.first].AddEvent(kv.second);
         }
     }
 
     std::string DebugString() const {
         std::string s;
-        for (const auto & events : events_)
+        for (const auto & kv : capture_groups_)
         {
-            s += std::to_string(events.first) + ":";
-            for (const auto & e : events.second)
-            {
-                s += " {";
-                assert(e.group_id == events.first);
-                switch (e.type)
-                {
-                    case B:
-                        s += "B";
-                        break;
-                    case E:
-                        s += "E";
-                        break;
-                    case BE:
-                        s += "BE";
-                        break;
-                    default:
-                        break;
-                }
-                s += ",";
-                s += std::to_string(e.pos);
-                s += "}";
-            }
-            s += "\n";
-        }
-        for (const auto & captured : captured_)
-        {
-            s += std::to_string(captured.first) + ":";
-            for (const auto & str : captured.second)
+            s += std::to_string(kv.first) + ":";
+            for (const auto & range : kv.second.captured())
             {
                 s += " \"";
-                s += str;
+                s += origin_.substr(range.first, range.second - range.first);
                 s += "\"";
             }
             s += "\n";
@@ -191,78 +169,8 @@ public:
     }
 
 private:
-    int EventPattern(const std::vector<Event> & events) {
-        // pattern -1     : invalid capture
-        // pattern 0      : no capture
-        // pattern 1 (a)  : (B,E)*,B | (B,E)+
-        // pattern 2 (a)* : (B+,BE*)+
-        // pattern 3 (a*) : (BE+,E*)+
-        // pattern 4 (a*)*: BE+           <== TODO: can't compute capture.
-        int pattern = -1;
-        if (events.size() < 2)
-        {
-            pattern = 0;
-        }
-        else
-        {
-            if (events[0].type == B)
-            {
-                if (events[1].type == E)
-                {
-                    pattern = 1;
-                    for (size_t i = 2; i < events.size(); ++i)
-                    {
-                        if (events[i].type != (i % 2 == 0 ? B : E))
-                        {
-                            pattern = -1;
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    pattern = 2;
-                    bool has_capture = false;
-                    for (size_t i = 1; i < events.size(); ++i)
-                    {
-                        if (events[i].type == BE)
-                        {
-                            has_capture = true;
-                        }
-                        if (events[i].type != B && events[i].type != BE)
-                        {
-                            pattern = -1;
-                            break;
-                        }
-                    }
-                    if (!has_capture)
-                        pattern = 0;
-                }
-            }
-            else
-            {
-                pattern = 3;
-                bool has_capture = false;
-                for (size_t i = 1; i < events.size(); ++i)
-                {
-                    if (events[i].type == E)
-                    {
-                        has_capture = true;
-                    }
-                    else if (events[i].type == B)
-                    {
-                        pattern = -1;
-                        break;
-                    }
-                }
-            }
-        }
-        return pattern;
-    }
-
-    std::map<size_t, std::vector<Event>> events_;
-    std::map<size_t, std::vector<std::string>> captured_;
     const std::string & origin_;
+    std::map<size_t, Group> capture_groups_;
 };
 
 class Char {
@@ -463,7 +371,7 @@ public:
     MatchResult Match(const std::string & str) const {
         MatchResult result(str);
 
-        std::set<State *> set1 = { state_port_.in->closure() };
+        std::set<State *> set1 = {state_port_.in->closure()};
         std::set<State *> set2;
 
         size_t pos = 0;
@@ -483,11 +391,10 @@ public:
         }
         result.capture().AddEvents(MakeStateEvents(set1, pos));
 
-        result.capture().Compute();
-        for (State * s : set1) {
+        for (State * s : set1)
+        {
             if (s->IsTerminal())
             {
-                result.capture().Compute();
                 result.SetMatched();
                 break;
             }
@@ -497,7 +404,9 @@ public:
     }
 
 private:
-    ENFA(StatePort sp) : state_port_(sp) {}
+    ENFA(StatePort sp)
+        : state_port_(sp) {
+    }
 
     StatePort state_port_;
 };
@@ -522,7 +431,6 @@ public:
         result.capture().AddEvents(MakeStateEvents(actions[s], pos));
         if (IsTerminal(s))
         {
-            result.capture().Compute();
             result.SetMatched();
         }
         return result;
@@ -772,10 +680,12 @@ private:
 
 int main() {
     // std::string regex = "((a)*)";
-    // std::string regex = "((a*)|(a)*|(a*)*)";
     // std::string regex = "((a(b*)c)*)";
-    std::string regex = "((a(b)*c|d(e*)f)*)";
     // std::string regex = "((a*)|(b*)|(c*))";
+
+    // std::string regex = "((a*)|(a)*|(a*)*)";
+    std::string regex = "((a(b)*c|d(e*)f)*)";
+
     ENFA enfa = FABuilder::Compile(regex);
     DFA dfa = FABuilder::Compile(enfa);
     // std::cout << dfa.DebugString() << std::endl;
@@ -792,7 +702,8 @@ int main() {
         MatchResult m2 = dfa.Match(line);
         if (m2.Matched())
             std::cout << m2.capture().DebugString() << std::endl;
-        std::cout << "DFA:  " << (m2.Matched() ? "ok." : "reject.") << std::endl;
+        std::cout << "DFA:  " << (m2.Matched() ? "ok." : "reject.")
+                  << std::endl;
     }
 
     return 0;
