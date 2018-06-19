@@ -456,6 +456,52 @@ std::map<size_t, Capture::Event> MakeStateEvents(
     return events;
 }
 
+class ENFA {
+    friend class FABuilder;
+
+public:
+    MatchResult Match(const std::string & str) const {
+        MatchResult result(str);
+
+        std::set<State *> set1 = { state_port_.in->closure() };
+        std::set<State *> set2;
+
+        size_t pos = 0;
+        for (char c : str)
+        {
+            if (set1.empty())
+                break;
+            result.capture().AddEvents(MakeStateEvents(set1, pos));
+            for (State * s : set1)
+            {
+                auto transition = s->GetTransition(c);
+                set2.insert(transition.begin(), transition.end());
+            }
+            set2.swap(set1);
+            set2.clear();
+            ++pos;
+        }
+        result.capture().AddEvents(MakeStateEvents(set1, pos));
+
+        result.capture().Compute();
+        for (State * s : set1) {
+            if (s->IsTerminal())
+            {
+                result.capture().Compute();
+                result.SetMatched();
+                break;
+            }
+        }
+
+        return result;
+    }
+
+private:
+    ENFA(StatePort sp) : state_port_(sp) {}
+
+    StatePort state_port_;
+};
+
 class DFA {
     friend class FABuilder;
 
@@ -616,7 +662,7 @@ public:
         ports_.push_back({a, b});
         pos_.pop_back();
     }
-    static StatePort Compile(std::string re) {
+    static ENFA Compile(std::string re) {
         FABuilder b;
 
         for (char c : re)
@@ -652,9 +698,9 @@ public:
         assert(b.ports_.size() == 1 && b.pos_.empty());
         StatePort sp = b.ports_.back();
         sp.out->SetTerminal();
-        return sp;
+        return ENFA(sp);
     }
-    static DFA Compile(StatePort enfa) {
+    static DFA Compile(ENFA enfa) {
         DFA dfa;
 
         struct H {
@@ -674,7 +720,7 @@ public:
             }
         };
 
-        std::deque<std::set<State *>> q = {enfa.in->closure()};
+        std::deque<std::set<State *>> q = {enfa.state_port_.in->closure()};
         std::set<State *> s1, s2;
 
         std::map<H, int> sidmap;
@@ -724,56 +770,29 @@ private:
     size_t group_idgen_;
 };
 
-bool Match(StatePort enfa, std::string str) {
-    Capture capture(str);
-
-    std::set<State *> set1 = {enfa.in->closure()};
-    std::set<State *> set2;
-
-    size_t pos = 0;
-    for (char c : str)
-    {
-        if (set1.empty())
-            break;
-        capture.AddEvents(MakeStateEvents(set1, pos));
-        for (State * s : set1)
-        {
-            auto transition = s->GetTransition(c);
-            set2.insert(transition.begin(), transition.end());
-        }
-        set2.swap(set1);
-        set2.clear();
-        ++pos;
-    }
-    capture.AddEvents(MakeStateEvents(set1, pos));
-
-    capture.Compute();
-    std::cout << capture.DebugString() << std::endl;
-
-    return std::find_if(set1.begin(), set1.end(), [](State * s) -> bool {
-               return s->IsTerminal();
-           }) != set1.end();
-}
-
 int main() {
     // std::string regex = "((a)*)";
     // std::string regex = "((a*)|(a)*|(a*)*)";
     // std::string regex = "((a(b*)c)*)";
     std::string regex = "((a(b)*c|d(e*)f)*)";
     // std::string regex = "((a*)|(b*)|(c*))";
-    StatePort enfa = FABuilder::Compile(regex);
+    ENFA enfa = FABuilder::Compile(regex);
     DFA dfa = FABuilder::Compile(enfa);
     // std::cout << dfa.DebugString() << std::endl;
 
     std::cout << "pattern: " << regex << std::endl;
     for (std::string line; std::getline(std::cin, line);)
     {
-        std::cout << "ENFA: " << (Match(enfa, line) ? "ok." : "reject.")
+        MatchResult m1 = enfa.Match(line);
+        if (m1.Matched())
+            std::cout << m1.capture().DebugString() << std::endl;
+        std::cout << "ENFA: " << (m1.Matched() ? "ok." : "reject.")
                   << std::endl;
-        MatchResult m = dfa.Match(line);
-        if (m.Matched())
-            std::cout << m.capture().DebugString() << std::endl;
-        std::cout << "DFA:  " << (m.Matched() ? "ok." : "reject.") << std::endl;
+
+        MatchResult m2 = dfa.Match(line);
+        if (m2.Matched())
+            std::cout << m2.capture().DebugString() << std::endl;
+        std::cout << "DFA:  " << (m2.Matched() ? "ok." : "reject.") << std::endl;
     }
 
     return 0;
