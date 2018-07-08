@@ -65,6 +65,7 @@ public:
 
     class Group {
     public:
+        Group() : mode_(0) {}
         void AddEvent(Event e) {
             // mode 0      : init
             // mode 1 (a)  : (B,E)*,B | (B,E)+
@@ -117,8 +118,8 @@ public:
                         start_ = e;
                     else
                         (last_.type == BE
-                             ? (void)(captured_.emplace_back(start_.pos, e.pos))
-                             : (void)(captured_.back().second = e.pos));
+                         ? (void)(captured_.emplace_back(start_.pos, e.pos))
+                         : (void)(captured_.back().second = e.pos));
                     break;
                 default:
                     assert(false);
@@ -212,8 +213,8 @@ public:
     const std::set<State *> & closure() {
         if (eclosure_.empty())
         {
-            std::set<int> v = {id()};
-            std::deque<State *> q = {this};
+            std::set<int> v = { id() };
+            std::deque<State *> q = { this };
             while (!q.empty())
             {
                 State * s = q.front();
@@ -243,7 +244,7 @@ public:
     std::set<State *> GetTransition(Char c) {
         assert(c != 0);
 
-        std::set<State *> from = {this};
+        std::set<State *> from = { this };
         from.insert(closure().begin(), closure().end());
 
         std::set<State *> to;
@@ -271,6 +272,7 @@ private:
     int id_;
     bool is_terminal_;
     std::map<Char, std::set<State *>> transition_;
+    //std::map<size_t, std::set<State *>> br_transition_;
     std::set<State *> eclosure_;
     std::map<size_t, Capture::ActionType> actions_;
 };
@@ -333,7 +335,7 @@ std::map<size_t, Capture::Event> MakeStateEvents(
     {
         size_t group_id = kv.first;
         Capture::ActionType type = kv.second;
-        events[group_id] = {group_id, type, pos};
+        events[group_id] = { group_id, type, pos };
     }
     return events;
 }
@@ -349,20 +351,39 @@ std::map<size_t, Capture::Event> MakeStateEvents(
             Capture::ActionType type = kv.second;
             if (events.find(group_id) == events.end())
             {
-                events[group_id] = {group_id, type, pos};
+                events[group_id] = { group_id, type, pos };
             }
             else
             {
                 assert((events[group_id].type == Capture::B &&
                         type == Capture::E) ||
-                       (events[group_id].type == Capture::E &&
-                        type == Capture::B));
+                        (events[group_id].type == Capture::E &&
+                         type == Capture::B));
                 events[group_id].type = Capture::BE;
             }
         }
     }
     return events;
 }
+
+// <StateSet, pos> GetTransition(string, <StateSet, pos>)
+//std::map<size_t, std::set<State *>> ComputeTransition(const std::string & str, const std::map<size_t, std::set<State *>> & state, const Capture & capture) {
+// compute str[pos] transition
+// compute state.BackReferenceTransition
+
+// T = {}
+// for each pos:
+//   for each state:
+//      T[pos+1] += state.GetTransition(str[pos])
+//      for each br in state:
+//          if match(&str[pos], capture.group(br).last()):
+//              T[pos + capture.group(br).last().length()] += state.GetTransition(br)
+//
+
+// ((c*)|a\2cccca\2|a\2)*
+// cccaccccaccc
+//}
+
 
 class ENFA {
     friend class FABuilder;
@@ -371,15 +392,17 @@ public:
     MatchResult Match(const std::string & str) const {
         MatchResult result(str);
 
-        std::set<State *> set1 = {state_port_.in->closure()};
+        std::set<State *> set1 = { state_port_.in->closure() };
         std::set<State *> set2;
 
         size_t pos = 0;
-        for (char c : str)
+        for (; pos < str.size(); ++pos)
         {
             if (set1.empty())
                 break;
             result.capture().AddEvents(MakeStateEvents(set1, pos));
+
+            char c = str[pos];
             for (State * s : set1)
             {
                 auto transition = s->GetTransition(c);
@@ -387,9 +410,11 @@ public:
             }
             set2.swap(set1);
             set2.clear();
-            ++pos;
         }
-        result.capture().AddEvents(MakeStateEvents(set1, pos));
+        if (pos == str.size())
+        {
+            result.capture().AddEvents(MakeStateEvents(set1, pos));
+        }
 
         for (State * s : set1)
         {
@@ -473,19 +498,19 @@ private:
     }
     void SetTransition(int from, Char c, int to) {
         assert(from >= 0 &&
-               (from + 1) * Char::CharTypeCount() <= (int)transition.size() &&
+            (from + 1) * Char::CharTypeCount() <= (int)transition.size() &&
                to >= 0 &&
                (to + 1) * Char::CharTypeCount() <= (int)transition.size());
         transition[from * Char::CharTypeCount() + c] = to;
     }
     int GetTransition(int state, Char c) const {
         assert(state >= 0 &&
-               (state + 1) * Char::CharTypeCount() <= (int)transition.size());
+            (state + 1) * Char::CharTypeCount() <= (int)transition.size());
         return transition[state * Char::CharTypeCount() + c];
     }
     void SetTerminal(int state) {
         assert(state >= 0 &&
-               (state + 1) * Char::CharTypeCount() <= (int)transition.size());
+            (state + 1) * Char::CharTypeCount() <= (int)transition.size());
         is_terminal[state] = true;
     }
     bool IsTerminal(int state) const {
@@ -504,7 +529,7 @@ public:
     }
     void S() {
         State * a = new State();
-        ports_.push_back({a, a});
+        ports_.push_back({ a, a });
     }
     void T(Char c) {
         StatePort s2 = ports_.back();
@@ -512,7 +537,7 @@ public:
         StatePort s1 = ports_.back();
         ports_.pop_back();
         s1.out->AddTransition(c, s2.in);
-        ports_.push_back({s1.in, s2.out});
+        ports_.push_back({ s1.in, s2.out });
     }
     void C() {
         State * a = new State();
@@ -520,7 +545,7 @@ public:
         ports_.pop_back();
         sp.out->AddTransition(Char::epsilon, sp.in);
         sp.in->AddTransition(Char::epsilon, a);
-        ports_.push_back({sp.in, a});
+        ports_.push_back({ sp.in, a });
     }
     void GroupB() {
         group_ids_.push_back(group_idgen_++);
@@ -531,11 +556,11 @@ public:
 
         State * a = new State();
         State * b = new State();
-        a->AddAction({group_id, Capture::B});
-        b->AddAction({group_id, Capture::E});
+        a->AddAction({ group_id, Capture::B });
+        b->AddAction({ group_id, Capture::E });
         a->AddTransition(Char::epsilon, ports_.back().in);
         ports_.back().out->AddTransition(Char::epsilon, b);
-        ports_.back() = {a, b};
+        ports_.back() = { a, b };
     }
     void OrB() {
         pos_.push_back(ports_.size());
@@ -552,7 +577,7 @@ public:
                 ports_[i].out->AddTransition(Char::epsilon, b);
             }
             ports_.erase(ports_.begin() + pos_.back(), ports_.end());
-            ports_.push_back({a, b});
+            ports_.push_back({ a, b });
         }
         pos_.pop_back();
     }
@@ -567,7 +592,7 @@ public:
             ports_[i].out->AddTransition(Char::epsilon, ports_[i + 1].in);
         }
         ports_.erase(ports_.begin() + pos_.back(), ports_.end());
-        ports_.push_back({a, b});
+        ports_.push_back({ a, b });
         pos_.pop_back();
     }
     static ENFA Compile(std::string re) {
@@ -628,7 +653,7 @@ public:
             }
         };
 
-        std::deque<std::set<State *>> q = {enfa.state_port_.in->closure()};
+        std::deque<std::set<State *>> q = { enfa.state_port_.in->closure() };
         std::set<State *> s1, s2;
 
         std::map<H, int> sidmap;
@@ -678,16 +703,17 @@ private:
     size_t group_idgen_;
 };
 
-int main() {
+void re() {
     // std::string regex = "((a)*)";
     // std::string regex = "((a(b*)c)*)";
     // std::string regex = "((a*)|(b*)|(c*))";
 
     // std::string regex = "((a*)|(a)*|(a*)*)";
     std::string regex = "((a(b)*c|d(e*)f)*)";
+    //std::string regex = "((aa*)|(a*))";
 
     ENFA enfa = FABuilder::Compile(regex);
-    DFA dfa = FABuilder::Compile(enfa);
+    //DFA dfa = FABuilder::Compile(enfa);
     // std::cout << dfa.DebugString() << std::endl;
 
     std::cout << "pattern: " << regex << std::endl;
@@ -697,14 +723,12 @@ int main() {
         if (m1.Matched())
             std::cout << m1.capture().DebugString() << std::endl;
         std::cout << "ENFA: " << (m1.Matched() ? "ok." : "reject.")
-                  << std::endl;
+            << std::endl;
 
-        MatchResult m2 = dfa.Match(line);
-        if (m2.Matched())
-            std::cout << m2.capture().DebugString() << std::endl;
-        std::cout << "DFA:  " << (m2.Matched() ? "ok." : "reject.")
-                  << std::endl;
+        //MatchResult m2 = dfa.Match(line);
+        //if (m2.Matched())
+        //    std::cout << m2.capture().DebugString() << std::endl;
+        //std::cout << "DFA:  " << (m2.Matched() ? "ok." : "reject.")
+        //          << std::endl;
     }
-
-    return 0;
 }
