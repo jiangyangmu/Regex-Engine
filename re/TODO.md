@@ -37,8 +37,10 @@ Design
     * empty match (e.g. "(a|)")
   * repeat: ab*
   * group: a(bc)
-    * capturing property
-    * nesting capability
+    * capturing capability
+    * non-capturing notation: a(?:bc)
+       * not occupy group id.
+    * [capturing] nesting
     * [capturing] back reference: a(bc)\1
 * Algorithm
   * regex => epsilon-NFA
@@ -47,7 +49,6 @@ Design
   * simulate DFA
 
 * Advanced features
-  * [group] non-capturing property: a(?:bc)(de)\1
   * [group, non-capturing] lookaround assertion: a(?=yes)y
   * [group, non-capturing] non-backtracking property
   * [group, capturing] name property: a(?<lang>c|cpp)

@@ -14,7 +14,7 @@ int main() {
     //std::string regex = "((a(b)*c|d(e*)f)*)";
     // std::string regex = "((aa*)|(a*))";
 
-    std::string regex = "((abc)\\1)";
+    std::string regex = "((abc)\\1(?:d)(e)\\2)";
 
     ENFA enfa = FABuilder::Compile(regex);
 

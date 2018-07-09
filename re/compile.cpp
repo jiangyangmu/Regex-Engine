@@ -4,7 +4,7 @@
 
 /*
     # regex grammar
-    group = '(' alter ')'
+    group = '(' ('?')? (':')? alter ')'
     alter = (concat)? ('|' (concat)?)*
     concat = item+
     item = (char | group) repeat
@@ -97,6 +97,7 @@ public:
     }
 
 private:
+    // TODO: check regex_ boundary.
     void repeat() {
         if (*regex_ == '*')
         {
@@ -154,13 +155,24 @@ private:
         }
     }
     void group() {
-        int id = idgen_++;
         assert(*regex_ == '(');
         ++regex_;
+
+        bool capture = (*regex_ != '?' || *(regex_ + 1) != ':');
+
+        int id;
+        if (capture)
+            id = idgen_++;
+        else
+            regex_ += 2;
+
         alter();
+
+        if (capture)
+            nl_.emplace_back(Node::GROUP, id);
+
         assert(*regex_ == ')');
         ++regex_;
-        nl_.emplace_back(Node::GROUP, id);
     }
     int idgen_;
     const char * regex_;
