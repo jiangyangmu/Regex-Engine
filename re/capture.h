@@ -1,0 +1,172 @@
+#pragma once
+
+class CaptureTag {
+    friend class Capture;
+
+public:
+    CaptureTag()
+        : begin_(0ull)
+        , end_(0ull) {
+    }
+
+    void AddBegin(size_t group_id) {
+        assert(group_id < 64);
+        begin_ |= (1ull << group_id);
+    }
+    void AddEnd(size_t group_id) {
+        assert(group_id < 64);
+        end_ |= (1ull << group_id);
+    }
+    void Merge(const CaptureTag & tag) {
+        begin_ |= tag.begin_;
+        end_ |= tag.end_;
+    }
+
+    std::string DebugString() const {
+        std::string s;
+        size_t group_id = 0;
+        uint64_t mask = begin_;
+        s += "begin: ";
+        while (mask > 0)
+        {
+            if (mask & 0x1)
+                s += std::to_string(group_id) + " ";
+            mask >>= 1;
+            ++group_id;
+        }
+
+        group_id = 0;
+        mask = end_;
+        s += "end: ";
+        while (mask > 0)
+        {
+            if (mask & 0x1)
+                s += std::to_string(group_id) + " ";
+            mask >>= 1;
+            ++group_id;
+        }
+        if (!s.empty() && s.back() == ' ')
+            s.pop_back();
+        return s;
+    }
+
+private:
+    uint64_t begin_;
+    uint64_t end_;
+};
+
+class Group {
+public:
+    Group()
+        : need_begin_(true) {
+    }
+    void Begin(size_t pos) {
+        if (need_begin_)
+        {
+            captured_.push_back({ pos, 0 });
+            need_begin_ = false;
+        }
+        events_.emplace_back(true, pos);
+    }
+    void End(size_t pos) {
+        if (!need_begin_)
+        {
+            captured_.back().second = pos;
+            need_begin_ = true;
+        }
+        events_.emplace_back(false, pos);
+    }
+    bool Empty() const {
+        return captured_.empty();
+    }
+    const std::vector<std::pair<size_t, size_t>> & captured() const {
+        return captured_;
+    }
+    const std::vector<std::pair<bool, size_t>> & events() const {
+        return events_;
+    }
+
+private:
+    bool need_begin_;
+    std::vector<std::pair<size_t, size_t>> captured_;
+    std::vector<std::pair<bool, size_t>> events_;
+}; 
+
+class Capture {
+public:
+    Capture(const std::string & origin)
+        : origin_(origin) {
+    }
+
+    void DoCapture(const CaptureTag & tag, size_t pos) {
+        size_t group_id = 0;
+        uint64_t mask = tag.begin_;
+        while (mask > 0)
+        {
+            if (mask & 0x1)
+                capture_groups_[group_id].Begin(pos);
+            mask >>= 1;
+            ++group_id;
+        }
+
+        group_id = 0;
+        mask = tag.end_;
+        while (mask > 0)
+        {
+            if (mask & 0x1)
+                capture_groups_[group_id].End(pos);
+            mask >>= 1;
+            ++group_id;
+        }
+    }
+
+    std::string DebugString() const {
+        std::string s;
+        for (const auto & kv : capture_groups_)
+        {
+            s += std::to_string(kv.first) + ":";
+            for (const auto & range : kv.second.captured())
+            {
+                s += " \"";
+                s += origin_.substr(range.first, range.second - range.first);
+                s += "\"";
+            }
+            s += "\n";
+        }
+        for (const auto & kv : capture_groups_)
+        {
+            s += std::to_string(kv.first) + ":";
+            for (const auto & p : kv.second.events())
+            {
+                s += ' ';
+                s += (p.first ? 'B' : 'E');
+                s += ':';
+                s += std::to_string(p.second);
+            }
+            s += "\n";
+        }
+        return s;
+    }
+
+private:
+    const std::string & origin_;
+    std::map<size_t, Group> capture_groups_;
+};
+
+class MatchResult {
+public:
+    MatchResult(const Capture & capture, bool matched)
+        : capture_(capture)
+        , matched_(matched) {
+    }
+    bool matched() const {
+        return matched_;
+    }
+    const Capture & capture() const {
+        return capture_;
+    }
+
+private:
+    Capture capture_;
+    bool matched_;
+};

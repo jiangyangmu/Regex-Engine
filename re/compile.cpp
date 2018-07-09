@@ -1,6 +1,6 @@
 #include "stdafx.h"
 
-#include "enfa.h"
+#include "compile.h"
 
 /*
     # regex grammar
@@ -73,11 +73,11 @@ typedef std::vector<Node> NodeList;
 
 // epsilon-NFA state-set port
 struct StatePort {
-    State * in; // for read
-    std::set<State **> out; // for write
+    EnfaState * in; // for read
+    std::set<EnfaState **> out; // for write
 
     // capturing group tag
-    std::deque<int> etags;
+    CaptureTag tag;
 };
 
 class RegexParser {
@@ -165,21 +165,21 @@ NodeList RegexToPostfix(const char * regex) {
  * postfix to epsilon-NFA
  */
 
-State * PostfixToEnfa(NodeList & nl) {
+EnfaState * PostfixToEnfa(NodeList & nl) {
     std::vector<StatePort> st;
 
 #define push(x) st.emplace_back(std::move(x))
 #define pop() st.back(), st.pop_back()
-#define patch(out, etags, in)    \
-    for (auto __o : (out))       \
-    {                            \
-        *__o = (in);             \
-        (in)->AddEndTags(etags); \
+#define patch(out, tag, in)             \
+    for (auto __o : (out))              \
+    {                                   \
+        *__o = (in);                    \
+        (in)->MutableTag()->Merge(tag); \
     }
 
     for (Node & n : nl)
     {
-        State * s;
+        EnfaState * s;
         StatePort sp, sp1, sp2;
         switch (n.type())
         {
@@ -188,48 +188,47 @@ State * PostfixToEnfa(NodeList & nl) {
                 assert(false);
                 break;
             case Node::CHAR_INPUT:
-                s = State::NewCharState(n.value());
+                s = EnfaStateBuilder::NewCharState(n.value());
                 sp.in = s;
-                sp.out.insert(&s->out);
+                sp.out.insert(s->MutableOut());
                 push(sp);
                 break;
             case Node::REPEAT:
                 sp1 = pop();
-                s = State::NewSplitState(sp1.in, nullptr);
-                patch(sp1.out, sp1.etags, s);
+                s = EnfaStateBuilder::NewSplitState(sp1.in, nullptr);
+                patch(sp1.out, sp1.tag, s);
 
                 sp.in = s;
-                sp.out.insert(&s->out1);
+                sp.out.insert(s->MutableOut1());
                 push(sp);
                 break;
             case Node::CONCAT:
                 sp2 = pop();
                 sp1 = pop();
-                patch(sp1.out, sp1.etags, sp2.in);
+                patch(sp1.out, sp1.tag, sp2.in);
 
                 sp.in = sp1.in;
                 sp.out = sp2.out;
-                sp.etags = sp2.etags;
+                sp.tag = sp2.tag;
                 push(sp);
                 break;
             case Node::ALTER:
                 sp2 = pop();
                 sp1 = pop();
 
-                s = State::NewSplitState(sp1.in, sp2.in);
+                s = EnfaStateBuilder::NewSplitState(sp1.in, sp2.in);
 
                 sp.in = s;
                 sp.out = sp1.out;
                 sp.out.insert(sp2.out.begin(), sp2.out.end());
-                sp.etags = sp1.etags;
-                sp.etags.insert(
-                    sp.etags.begin(), sp2.etags.begin(), sp2.etags.end());
+                sp.tag = sp1.tag;
+                sp.tag.Merge(sp2.tag);
                 push(sp);
                 break;
             case Node::GROUP:
                 sp = pop();
-                sp.in->AddBeginTag(n.value());
-                sp.etags.push_back(n.value());
+                sp.in->MutableTag()->AddBegin(n.value());
+                sp.tag.AddEnd(n.value());
                 push(sp);
                 break;
             default:
@@ -238,9 +237,11 @@ State * PostfixToEnfa(NodeList & nl) {
     }
 
     StatePort sp;
+    EnfaState *s;
     sp = pop();
     assert(st.empty());
-    patch(sp.out, sp.etags, State::NewFinalState());
+    s = EnfaStateBuilder::NewFinalState();
+    patch(sp.out, sp.tag, s);
 
 #undef patch
 #undef pop
@@ -249,12 +250,12 @@ State * PostfixToEnfa(NodeList & nl) {
     return sp.in;
 }
 
-State * RegexToEnfa(const std::string & input) {
-    NodeList nl = RegexToPostfix(input.data());
+EnfaState * RegexToEnfa(const std::string & regex) {
+    NodeList nl = RegexToPostfix(regex.data());
     return PostfixToEnfa(nl);
 }
 
-void ConvertDebugPrint(std::string & regex) {
+EnfaState * RegexToEnfaDebug(const std::string & regex) {
     std::cout << "pattern: " << regex << std::endl;
     NodeList nl = RegexToPostfix(regex.data());
     for (auto n : nl)
@@ -263,6 +264,14 @@ void ConvertDebugPrint(std::string & regex) {
     }
     std::cout << std::endl;
 
-    State * enfa = PostfixToEnfa(nl);
-    std::cout << State::DebugString(enfa) << std::endl;
+    EnfaState * start = PostfixToEnfa(nl);
+    std::cout << EnfaState::DebugString(start) << std::endl;
+    return start;
+}
+
+ENFA FABuilder::Compile(std::string regex)
+{
+    ENFA enfa;
+    enfa.start_ = RegexToEnfaDebug(regex);
+    return enfa;
 }
