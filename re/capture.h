@@ -55,11 +55,20 @@ private:
     uint64_t end_;
 };
 
-class Group {
+class CaptureGroup {
 public:
-    Group()
+    CaptureGroup()
         : need_begin_(true) {
     }
+
+    std::pair<size_t, size_t> Last() const {
+        assert(IsComplete());
+        return captured_.back();
+    }
+    bool IsComplete() const {
+        return need_begin_ && !captured_.empty();
+    }
+
     void Begin(size_t pos) {
         if (need_begin_)
         {
@@ -76,9 +85,7 @@ public:
         }
         events_.emplace_back(false, pos);
     }
-    bool Empty() const {
-        return captured_.empty();
-    }
+
     const std::vector<std::pair<size_t, size_t>> & captured() const {
         return captured_;
     }
@@ -96,6 +103,11 @@ class Capture {
 public:
     Capture(const std::string & origin)
         : origin_(origin) {
+    }
+
+    const CaptureGroup & Group(size_t group_id) {
+        assert(group_id < capture_groups_.size());
+        return capture_groups_[group_id];
     }
 
     void DoCapture(const CaptureTag & tag, size_t pos) {
@@ -150,7 +162,7 @@ public:
 
 private:
     const std::string & origin_;
-    std::map<size_t, Group> capture_groups_;
+    std::map<size_t, CaptureGroup> capture_groups_;
 };
 
 class MatchResult {
@@ -167,6 +179,6 @@ public:
     }
 
 private:
-    Capture capture_;
     bool matched_;
+    Capture capture_;
 };

@@ -17,10 +17,10 @@ Why is a regex engine useful?
 The elements of regex engine
 ---
 
-Q1: Does string S matches pattern P?
-Q2: What are the sub-strings in string S matches sub-parts in pattern P?
-Q3: What are the sub-strings S[] in a string matches pattern P?
-Q4: What are the sub-strings S[] in a string matches pattern P, if P is changed
+* Q1: Does string S matches pattern P?
+* Q2: What are the sub-strings in string S matches sub-parts in pattern P?
+* Q3: What are the sub-strings S[] in a string matches pattern P?
+* Q4: What are the sub-strings S[] in a string matches pattern P, if P is changed
     in a non-destructive way?
 
 Design

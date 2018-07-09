@@ -8,6 +8,7 @@
     alter = (concat)? ('|' (concat)?)*
     concat = item+
     item = (char | group) repeat
+    char = ASCII | '\' [0-9]
     repeat = ('*')?
 */
 
@@ -16,6 +17,7 @@ struct Node {
     enum Type {
         NULL_INPUT,
         CHAR_INPUT,
+        BACKREF_INPUT,
         REPEAT,
         CONCAT,
         ALTER,
@@ -47,6 +49,9 @@ struct Node {
                 s += "INPUT(";
                 s += static_cast<char>(value_);
                 s += ")";
+                break;
+            case BACKREF_INPUT:
+                s += "BACKREF(" + std::to_string(value_) + ")";
                 break;
             case REPEAT:
                 s += "REPEAT";
@@ -103,6 +108,15 @@ private:
         if (*regex_ >= 'a' && *regex_ <= 'z')
         {
             nl_.emplace_back(*regex_++);
+            repeat();
+            return true;
+        }
+        else if (*regex_ == '\\')
+        {
+            ++regex_;
+            assert(*regex_ >= '0' && *regex_ <= '9');
+            nl_.emplace_back(Node::BACKREF_INPUT, *regex_ - '0');
+            ++regex_;
             repeat();
             return true;
         }
@@ -193,6 +207,12 @@ EnfaState * PostfixToEnfa(NodeList & nl) {
                 sp.out.insert(s->MutableOut());
                 push(sp);
                 break;
+            case Node::BACKREF_INPUT:
+                s = EnfaStateBuilder::NewBackReferenceState(n.value());
+                sp.in = s;
+                sp.out.insert(s->MutableOut());
+                push(sp);
+                break;
             case Node::REPEAT:
                 sp1 = pop();
                 s = EnfaStateBuilder::NewSplitState(sp1.in, nullptr);
@@ -237,7 +257,7 @@ EnfaState * PostfixToEnfa(NodeList & nl) {
     }
 
     StatePort sp;
-    EnfaState *s;
+    EnfaState * s;
     sp = pop();
     assert(st.empty());
     s = EnfaStateBuilder::NewFinalState();
@@ -269,8 +289,7 @@ EnfaState * RegexToEnfaDebug(const std::string & regex) {
     return start;
 }
 
-ENFA FABuilder::Compile(std::string regex)
-{
+ENFA FABuilder::Compile(std::string regex) {
     ENFA enfa;
     enfa.start_ = RegexToEnfaDebug(regex);
     return enfa;

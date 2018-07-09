@@ -2,6 +2,8 @@
 
 #include "compile.h"
 
+// evil case: "(a\0)" ["a", "aa", "aaa", ...]
+
 int main() {
     // std::string regex = "(ab*|c)";
     // std::string regex = "((a)*)";
@@ -9,8 +11,10 @@ int main() {
     // std::string regex = "((a(b*)c)*)";
     // std::string regex = "((a*)|(b*)|(c*))";
     // std::string regex = "((a*)|(a)*|(a*)*)";
-    std::string regex = "((a(b)*c|d(e*)f)*)";
+    //std::string regex = "((a(b)*c|d(e*)f)*)";
     // std::string regex = "((aa*)|(a*))";
+
+    std::string regex = "((abc)\\1)";
 
     ENFA enfa = FABuilder::Compile(regex);
 
