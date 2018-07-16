@@ -1,5 +1,9 @@
 #pragma once
 
+class Capture;
+
+namespace v1 {
+
 class CaptureTag {
     friend class Capture;
 
@@ -55,6 +59,17 @@ private:
     uint64_t end_;
 };
 
+}
+
+namespace v2 {
+
+struct CaptureTag {
+    size_t capture_id;
+    bool is_begin;
+};
+
+}
+
 class CaptureGroup {
 public:
     CaptureGroup()
@@ -97,7 +112,7 @@ private:
     bool need_begin_;
     std::vector<std::pair<size_t, size_t>> captured_;
     std::vector<std::pair<bool, size_t>> events_;
-}; 
+};
 
 class Capture {
 public:
@@ -110,7 +125,7 @@ public:
         return capture_groups_[group_id];
     }
 
-    void DoCapture(const CaptureTag & tag, size_t pos) {
+    void DoCapture(const v1::CaptureTag & tag, size_t pos) {
         size_t group_id = 0;
         uint64_t mask = tag.begin_;
         while (mask > 0)
@@ -130,6 +145,16 @@ public:
             mask >>= 1;
             ++group_id;
         }
+    }
+    void DoCapture(const v2::CaptureTag & tag, size_t pos) {
+        if (tag.is_begin)
+            capture_groups_[tag.capture_id].Begin(pos);
+        else
+            capture_groups_[tag.capture_id].End(pos);
+    }
+
+    const std::string & origin() const {
+        return origin_;
     }
 
     std::string DebugString() const {

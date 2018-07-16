@@ -14,9 +14,12 @@ int main() {
     //std::string regex = "((a(b)*c|d(e*)f)*)";
     // std::string regex = "((aa*)|(a*))";
 
-    std::string regex = "((abc)\\1(?:d)(e)\\2)";
+    //std::string regex = "((abc)\\1(?:d)(e)\\2)";
+    //std::string regex = "((a*)*)";
+    std::string regex = "((?=y)yes)";
 
-    ENFA enfa = FABuilder::Compile(regex);
+    //v1::ENFA enfa = FABuilder::CompileV1(regex);
+    v2::ENFA enfa = FABuilder::CompileV2(regex);
 
     std::cout << "pattern: " << regex << std::endl;
     for (std::string line; std::getline(std::cin, line);)

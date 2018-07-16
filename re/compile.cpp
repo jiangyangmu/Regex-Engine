@@ -2,20 +2,13 @@
 
 #include "compile.h"
 
-/*
-    # regex grammar
-    group = '(' ('?')? (':')? alter ')'
-    alter = (concat)? ('|' (concat)?)*
-    concat = item+
-    item = (char | group) repeat
-    char = ASCII | '\' [0-9]
-    repeat = ('*')?
-*/
+#include "regex.h"
 
 // postfix node
 struct Node {
     enum Type {
-        NULL_INPUT,
+        INVALID,
+        NULL_INPUT, // empty group or alternation
         CHAR_INPUT,
         BACKREF_INPUT,
         REPEAT,
@@ -24,34 +17,41 @@ struct Node {
         GROUP,
     };
 
-    explicit Node(char c)
-        : value_(c)
-        , type_(CHAR_INPUT) {
+    explicit Node(Char c)
+        : type(CHAR_INPUT)
+        , chr(c) {
     }
-    explicit Node(Type t, int v = 0)
-        : value_(v)
-        , type_(t) {
+    explicit Node(Group g)
+        : type(GROUP)
+        , group(g) {
     }
-    int value() const {
-        return value_;
+    explicit Node(BackReference br)
+        : type(BACKREF_INPUT)
+        , backref(br) {
     }
-    Type type() const {
-        return type_;
+    explicit Node(Repeat rep)
+        : type(REPEAT)
+        , repeat(rep) {
     }
+    explicit Node(Type t)
+        : type(t) {
+        assert(type == CONCAT || type == ALTER || type == NULL_INPUT);
+    }
+
     std::string DebugString() const {
         std::string s;
-        switch (type_)
+        switch (type)
         {
             case NULL_INPUT:
                 s += "INPUT()";
                 break;
             case CHAR_INPUT:
                 s += "INPUT(";
-                s += static_cast<char>(value_);
+                s += chr.c;
                 s += ")";
                 break;
             case BACKREF_INPUT:
-                s += "BACKREF(" + std::to_string(value_) + ")";
+                s += "BACKREF(" + std::to_string(backref.capture_id) + ")";
                 break;
             case REPEAT:
                 s += "REPEAT";
@@ -63,7 +63,22 @@ struct Node {
                 s += "ALTER";
                 break;
             case GROUP:
-                s += "GROUP(" + std::to_string(value_) + ")";
+                switch (group.type)
+                {
+                    case Group::CAPTURE:
+                        s +=
+                            "CAPTURE(" + std::to_string(group.capture_id) + ")";
+                        break;
+                    case Group::NON_CAPTURE:
+                        s += "NON_CAPTURE";
+                        break;
+                    case Group::LOOK_AHEAD:
+                        s += "LOOKAHEAD";
+                        break;
+                    case Group::LOOK_BEHIND:
+                        s += "LOOKBEHIND";
+                        break;
+                }
                 break;
             default:
                 break;
@@ -71,24 +86,21 @@ struct Node {
         return s;
     }
 
-    int value_;
-    Type type_;
+    Type type;
+    union {
+        Char chr;
+        Group group;
+        BackReference backref;
+        Repeat repeat;
+    };
 };
 typedef std::vector<Node> NodeList;
-
-// epsilon-NFA state-set port
-struct StatePort {
-    EnfaState * in; // for read
-    std::set<EnfaState **> out; // for write
-
-    // capturing group tag
-    CaptureTag tag;
-};
 
 class RegexParser {
 public:
     explicit RegexParser(const char * regex)
-        : idgen_(0)
+        : capture_id_gen_(0)
+        , lookaround_id_gen_(0)
         , regex_(regex) {
         group();
     }
@@ -101,14 +113,16 @@ private:
     void repeat() {
         if (*regex_ == '*')
         {
-            nl_.emplace_back(Node::REPEAT);
             ++regex_;
+            Repeat r = {0, 0, false};
+            nl_.emplace_back(r);
         }
     }
     bool item() {
         if (*regex_ >= 'a' && *regex_ <= 'z')
         {
-            nl_.emplace_back(*regex_++);
+            Char c = {*regex_++};
+            nl_.emplace_back(c);
             repeat();
             return true;
         }
@@ -116,8 +130,8 @@ private:
         {
             ++regex_;
             assert(*regex_ >= '0' && *regex_ <= '9');
-            nl_.emplace_back(Node::BACKREF_INPUT, *regex_ - '0');
-            ++regex_;
+            BackReference b = {*regex_++ - '0'};
+            nl_.emplace_back(b);
             repeat();
             return true;
         }
@@ -158,23 +172,30 @@ private:
         assert(*regex_ == '(');
         ++regex_;
 
-        bool capture = (*regex_ != '?' || *(regex_ + 1) != ':');
+        Group g;
 
-        int id;
-        if (capture)
-            id = idgen_++;
-        else
+        g.type = Group::CAPTURE;
+        if (*regex_ == '?' && *(regex_ + 1) == ':')
+            g.type = Group::NON_CAPTURE, regex_ += 2;
+        else if (*regex_ == '?' && *(regex_ + 1) == '=')
+            g.type = Group::LOOK_AHEAD, g.lookaround_id = lookaround_id_gen_++,
             regex_ += 2;
+        else if (*regex_ == '?' && *(regex_ + 1) == '<')
+            g.type = Group::LOOK_BEHIND, g.lookaround_id = lookaround_id_gen_++,
+            regex_ += 2;
+        else
+            g.capture_id = capture_id_gen_++;
 
         alter();
 
-        if (capture)
-            nl_.emplace_back(Node::GROUP, id);
+        nl_.emplace_back(g);
 
         assert(*regex_ == ')');
         ++regex_;
     }
-    int idgen_;
+
+    int capture_id_gen_;
+    int lookaround_id_gen_;
     const char * regex_;
     NodeList nl_;
 };
@@ -187,9 +208,20 @@ NodeList RegexToPostfix(const char * regex) {
     return RegexParser(regex).get();
 }
 
+namespace v1 {
+
 /*
  * postfix to epsilon-NFA
  */
+
+// epsilon-NFA state-set port
+struct StatePort {
+    EnfaState * in; // for read
+    std::set<EnfaState **> out; // for write
+
+    // capturing group tag
+    CaptureTag tag;
+};
 
 EnfaState * PostfixToEnfa(NodeList & nl) {
     std::vector<StatePort> st;
@@ -207,20 +239,21 @@ EnfaState * PostfixToEnfa(NodeList & nl) {
     {
         EnfaState * s;
         StatePort sp, sp1, sp2;
-        switch (n.type())
+        switch (n.type)
         {
             case Node::NULL_INPUT:
                 // TODO: support null branch
                 assert(false);
                 break;
             case Node::CHAR_INPUT:
-                s = EnfaStateBuilder::NewCharState(n.value());
+                s = EnfaStateBuilder::NewCharState(n.chr.c);
                 sp.in = s;
                 sp.out.insert(s->MutableOut());
                 push(sp);
                 break;
             case Node::BACKREF_INPUT:
-                s = EnfaStateBuilder::NewBackReferenceState(n.value());
+                s = EnfaStateBuilder::NewBackReferenceState(
+                    n.backref.capture_id);
                 sp.in = s;
                 sp.out.insert(s->MutableOut());
                 push(sp);
@@ -258,10 +291,13 @@ EnfaState * PostfixToEnfa(NodeList & nl) {
                 push(sp);
                 break;
             case Node::GROUP:
-                sp = pop();
-                sp.in->MutableTag()->AddBegin(n.value());
-                sp.tag.AddEnd(n.value());
-                push(sp);
+                if (n.group.type == Group::CAPTURE)
+                {
+                    sp = pop();
+                    sp.in->MutableTag()->AddBegin(n.group.capture_id);
+                    sp.tag.AddEnd(n.group.capture_id);
+                    push(sp);
+                }
                 break;
             default:
                 break;
@@ -301,8 +337,115 @@ EnfaState * RegexToEnfaDebug(const std::string & regex) {
     return start;
 }
 
-ENFA FABuilder::Compile(std::string regex) {
-    ENFA enfa;
-    enfa.start_ = RegexToEnfaDebug(regex);
+} // namespace v1
+
+namespace v2 {
+
+/*
+ * postfix to epsilon-NFA
+ */
+
+EnfaState * PostfixToEnfa(NodeList & nl) {
+    using StatePort = EnfaStateBuilder::StatePort;
+
+    std::vector<StatePort> st;
+
+#define push(x) st.emplace_back(x)
+#define pop() st.back(), st.pop_back()
+
+    for (Node & n : nl)
+    {
+        StatePort sp, sp1, sp2;
+        switch (n.type)
+        {
+            case Node::NULL_INPUT:
+                // TODO: support null branch
+                assert(false);
+                break;
+            case Node::CHAR_INPUT:
+                push(EnfaStateBuilder::Char(n.chr.c));
+                break;
+            case Node::BACKREF_INPUT:
+                push(EnfaStateBuilder::BackReference(n.backref.capture_id));
+                break;
+            case Node::REPEAT:
+                sp = pop();
+                push(EnfaStateBuilder::Repeat(sp));
+                break;
+            case Node::CONCAT:
+                sp2 = pop();
+                sp1 = pop();
+                push(EnfaStateBuilder::Concat(sp1, sp2));
+                break;
+            case Node::ALTER:
+                sp2 = pop();
+                sp1 = pop();
+                push(EnfaStateBuilder::Alter(sp1, sp2));
+                break;
+            case Node::GROUP:
+                sp = pop();
+                sp = EnfaStateBuilder::Group(sp);
+                if (n.group.type == Group::CAPTURE)
+                {
+                    sp.in->SetCaptureTag({n.group.capture_id, true});
+                    sp.out->SetCaptureTag({n.group.capture_id, false});
+                }
+                else if (n.group.type == Group::LOOK_AHEAD)
+                {
+                    sp.in->SetLookAheadTag({n.group.lookaround_id, true});
+                    sp.out->SetLookAheadTag({n.group.lookaround_id, false});
+                }
+                else if (n.group.type == Group::NON_CAPTURE)
+                {}
+                else
+                    assert(false);
+                push(sp);
+                break;
+            default:
+                break;
+        }
+    }
+
+    StatePort sp;
+    sp = pop();
+    assert(st.empty());
+    sp.out->SetFinal();
+
+#undef pop
+#undef push
+
+    return sp.in;
+}
+
+EnfaState * RegexToEnfa(const std::string & regex) {
+    NodeList nl = RegexToPostfix(regex.data());
+    return PostfixToEnfa(nl);
+}
+
+EnfaState * RegexToEnfaDebug(const std::string & regex) {
+    std::cout << "pattern: " << regex << std::endl;
+    NodeList nl = RegexToPostfix(regex.data());
+    for (auto n : nl)
+    {
+        std::cout << n.DebugString() << " ";
+    }
+    std::cout << std::endl;
+
+    EnfaState * start = PostfixToEnfa(nl);
+    std::cout << EnfaState::DebugString(start) << std::endl;
+    return start;
+}
+
+} // namespace v2
+
+v1::ENFA FABuilder::CompileV1(std::string regex) {
+    v1::ENFA enfa;
+    enfa.start_ = v1::RegexToEnfaDebug(regex);
+    return enfa;
+}
+
+v2::ENFA FABuilder::CompileV2(std::string regex) {
+    v2::ENFA enfa;
+    enfa.start_ = v2::RegexToEnfaDebug(regex);
     return enfa;
 }
