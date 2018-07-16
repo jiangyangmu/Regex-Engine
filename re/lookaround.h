@@ -2,8 +2,9 @@
 
 #include "stdafx.h"
 
-struct LookAheadTag {
+struct LookAroundTag {
     int id;
     bool is_begin;
+    bool is_forward;
 };
 

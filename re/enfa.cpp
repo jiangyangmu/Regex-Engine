@@ -174,10 +174,10 @@ std::string EnfaState::DebugString(EnfaState * start) {
             o += std::string("\t") +
                 (kv.first->GetCaptureTag().is_begin ? "B" : "E") +
                 std::to_string(kv.first->GetCaptureTag().capture_id);
-        if (kv.first->HasLookAheadTag())
+        if (kv.first->HasLookAroundTag())
             o += std::string("\t") +
-                (kv.first->GetLookAheadTag().is_begin ? "LB" : "LE") +
-                std::to_string(kv.first->GetLookAheadTag().id);
+                (kv.first->GetLookAroundTag().is_begin ? "LB" : "LE") +
+                std::to_string(kv.first->GetLookAroundTag().id);
     }
 
     std::string s;
@@ -309,6 +309,31 @@ EnfaStateBuilder::StatePort EnfaStateBuilder::Group(StatePort sp) {
     return {in, out};
 }
 
+EnfaStateBuilder::StatePort EnfaStateBuilder::InverseGroup(StatePort sp) {
+    EnfaState * in = new EnfaState();
+    EnfaState * out = new EnfaState();
+
+    in->forward = out->backword = {
+        EnfaState::EPSILON_OUT,
+        0,
+        0,
+    };
+    sp.in->backword = sp.out->forward = {
+        EnfaState::EPSILON_OUT,
+        0,
+        0,
+    };
+
+    in->forward.out_.push_back(sp.out);
+    sp.out->forward.out_.push_back(in);
+
+    out->backword.out_.push_back(sp.in);
+    sp.in->backword.out_.push_back(out);
+
+    return {in, out};
+}
+
+#define DEBUG
 #ifdef DEBUG
 std::map<const EnfaState *, int> BuildIdMap(const EnfaState * start) {
     std::map<const EnfaState *, int> m;
@@ -337,8 +362,9 @@ struct Thread {
     Capture capture;
 };
 
-MatchResult MatchWhenMeetFinal(
-    const Thread & start, std::function<bool(const EnfaState & state)> pred) {
+MatchResult MatchWhen(const Thread & start,
+                      std::function<bool(const EnfaState & state)> pred,
+                      bool forward_match) {
     const std::string & text = start.capture.origin();
 
 #ifdef DEBUG
@@ -353,6 +379,9 @@ MatchResult MatchWhenMeetFinal(
         Thread t = T.back();
         T.pop_back();
 
+        (forward_match ? t.state->SetForwardMode()
+                       : t.state->SetBackwordMode());
+
         if (t.state->HasCaptureTag())
             t.capture.DoCapture(t.state->GetCaptureTag(), t.pos);
 
@@ -360,29 +389,37 @@ MatchResult MatchWhenMeetFinal(
             return MatchResult(t.capture, true);
 
         // look around assertion
-        if (t.state->HasLookAheadTag() && t.state->GetLookAheadTag().is_begin)
+        if (t.state->HasLookAroundTag() && t.state->GetLookAroundTag().is_begin)
         {
 #ifdef DEBUG
-            std::cout << "Eval lookahead " << t.state->GetLookAheadTag().id
-                      << " at " << t.pos << std::endl;
+            std::cout << "Eval "
+                      << (t.state->GetLookAroundTag().is_forward
+                              ? "lookahead "
+                              : "lookbehind ")
+                      << t.state->GetLookAroundTag().id << " at " << t.pos
+                      << std::endl;
 #endif
 
-            int lookahead_id = t.state->GetLookAheadTag().id;
+            int lookaround_id = t.state->GetLookAroundTag().id;
+            bool is_forward = t.state->GetLookAroundTag().is_forward;
             const EnfaState * last_state = nullptr;
             t.state = t.state->Out();
-            if (MatchWhenMeetFinal(
-                    t,
-                    [lookahead_id,
-                     &last_state](const EnfaState & state) mutable -> bool {
-                        last_state = &state;
-                        return state.HasLookAheadTag() &&
-                            !state.GetLookAheadTag().is_begin &&
-                            state.GetLookAheadTag().id == lookahead_id;
-                    })
+            if (MatchWhen(t,
+                          [lookaround_id, &last_state](
+                              const EnfaState & state) mutable -> bool {
+                              last_state = &state;
+                              return state.HasLookAroundTag() &&
+                                  !state.GetLookAroundTag().is_begin &&
+                                  state.GetLookAroundTag().id == lookaround_id;
+                          },
+                          is_forward)
                     .matched())
             {
                 assert(last_state);
                 t.state = last_state;
+
+                (forward_match ? t.state->SetForwardMode()
+                               : t.state->SetBackwordMode());
             }
             else
             { continue; }
@@ -394,13 +431,26 @@ MatchResult MatchWhenMeetFinal(
 
         if (t.state->IsChar())
         {
-            if (t.pos < text.size() && t.state->Char() == text[t.pos])
-                T.push_back({t.pos + 1, t.state->Out(), t.capture})
+            if (forward_match)
+            {
+                if (t.pos < text.size() && t.state->Char() == text[t.pos])
+                    T.push_back({t.pos + 1, t.state->Out(), t.capture})
 #ifdef DEBUG
-                    ,
-                    std::cout << '+' << debug[t.state->Out()]
+                        ,
+                        std::cout << '+' << debug[t.state->Out()]
 #endif
-                    ;
+                        ;
+            }
+            else
+            {
+                if (t.pos > 0 && t.state->Char() == text[t.pos - 1])
+                    T.push_back({t.pos - 1, t.state->Out(), t.capture})
+#ifdef DEBUG
+                        ,
+                        std::cout << '+' << debug[t.state->Out()]
+#endif
+                        ;
+            }
         }
         else if (t.state->IsBackReference())
         {
@@ -408,15 +458,30 @@ MatchResult MatchWhenMeetFinal(
             if (group.IsComplete())
             {
                 auto range = group.Last();
-                int delta = range.second - range.first;
-                bool match = (t.pos == range.first) ||
-                    (t.pos + delta <= text.size() &&
-                     std::equal(text.data() + range.first,
-                                text.data() + range.second,
-                                text.data() + t.pos,
-                                text.data() + t.pos + delta));
-                if (match)
-                    T.push_back({t.pos + delta, t.state->Out(), t.capture});
+                assert(range.second >= range.first);
+                size_t delta = range.second - range.first;
+                if (forward_match)
+                {
+                    bool match = (t.pos == range.first) ||
+                        (t.pos + delta <= text.size() &&
+                         std::equal(text.data() + range.first,
+                                    text.data() + range.second,
+                                    text.data() + t.pos,
+                                    text.data() + t.pos + delta));
+                    if (match)
+                        T.push_back({t.pos + delta, t.state->Out(), t.capture});
+                }
+                else
+                {
+                    bool match = (t.pos == range.second) ||
+                        (t.pos >= delta &&
+                         std::equal(text.data() + range.first,
+                                    text.data() + range.second,
+                                    text.data() + t.pos - delta,
+                                    text.data() + t.pos));
+                    if (match)
+                        T.push_back({t.pos - delta, t.state->Out(), t.capture});
+                }
             }
         }
         else if (t.state->IsEpsilon())
@@ -442,8 +507,10 @@ MatchResult MatchWhenMeetFinal(
 
 MatchResult ENFA::Match(const std::string & text) const {
     Thread t = {0, start_, Capture(text)};
-    return MatchWhenMeetFinal(
-        t, [](const EnfaState & state) -> bool { return state.IsFinal(); });
+    return MatchWhen(
+        t,
+        [](const EnfaState & state) -> bool { return state.IsFinal(); },
+        true);
 }
 
 } // namespace v2

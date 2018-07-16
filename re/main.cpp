@@ -16,7 +16,7 @@ int main() {
 
     //std::string regex = "((abc)\\1(?:d)(e)\\2)";
     //std::string regex = "((a*)*)";
-    std::string regex = "((?=y)yes)";
+    std::string regex = "((?=y)yes(?<s))";
 
     //v1::ENFA enfa = FABuilder::CompileV1(regex);
     v2::ENFA enfa = FABuilder::CompileV2(regex);

@@ -384,7 +384,10 @@ EnfaState * PostfixToEnfa(NodeList & nl) {
                 break;
             case Node::GROUP:
                 sp = pop();
-                sp = EnfaStateBuilder::Group(sp);
+                if (n.group.type == Group::LOOK_BEHIND)
+                    sp = EnfaStateBuilder::InverseGroup(sp);
+                else
+                    sp = EnfaStateBuilder::Group(sp);
                 if (n.group.type == Group::CAPTURE)
                 {
                     sp.in->SetCaptureTag({n.group.capture_id, true});
@@ -392,8 +395,17 @@ EnfaState * PostfixToEnfa(NodeList & nl) {
                 }
                 else if (n.group.type == Group::LOOK_AHEAD)
                 {
-                    sp.in->SetLookAheadTag({n.group.lookaround_id, true});
-                    sp.out->SetLookAheadTag({n.group.lookaround_id, false});
+                    sp.in->SetLookAroundTag(
+                        {n.group.lookaround_id, true, true});
+                    sp.out->SetLookAroundTag(
+                        {n.group.lookaround_id, false, true});
+                }
+                else if (n.group.type == Group::LOOK_BEHIND)
+                {
+                    sp.in->SetLookAroundTag(
+                        {n.group.lookaround_id, true, false});
+                    sp.out->SetLookAroundTag(
+                        {n.group.lookaround_id, false, false});
                 }
                 else if (n.group.type == Group::NON_CAPTURE)
                 {}

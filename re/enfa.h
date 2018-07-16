@@ -154,11 +154,11 @@ public:
     const CaptureTag & GetCaptureTag() const {
         return capture_;
     }
-    bool HasLookAheadTag() const {
-        return has_lookahead_;
+    bool HasLookAroundTag() const {
+        return has_lookaround_;
     }
-    const LookAheadTag & GetLookAheadTag() const {
-        return lookahead_;
+    const LookAroundTag & GetLookAroundTag() const {
+        return lookaround_;
     }
 
     void SetFinal() {
@@ -168,18 +168,16 @@ public:
         has_capture_ = true;
         capture_ = tag;
     }
-    void SetLookAheadTag(LookAheadTag tag) {
-        has_lookahead_ = true;
-        lookahead_ = tag;
+    void SetLookAroundTag(LookAroundTag tag) {
+        has_lookaround_ = true;
+        lookaround_ = tag;
     }
 
-    EnfaState & Forward() {
+    void SetForwardMode() const {
         direction_ = &forward;
-        return (*this);
     }
-    EnfaState & Backword() {
+    void SetBackwordMode() const {
         direction_ = &backword;
-        return (*this);
     }
 
     static std::string DebugString(EnfaState * start);
@@ -194,7 +192,7 @@ private:
         direction_ = &forward;
         is_final_ = false;
         has_capture_ = false;
-        has_lookahead_ = false;
+        has_lookaround_ = false;
     }
 
     enum Type {
@@ -210,14 +208,14 @@ private:
         size_t backref_;
         std::vector<EnfaState *> out_;
     } forward, backword;
-    Direction * direction_;
+    mutable const Direction * direction_;
 
     bool is_final_;
 
     bool has_capture_;
     CaptureTag capture_;
-    bool has_lookahead_;
-    LookAheadTag lookahead_;
+    bool has_lookaround_;
+    LookAroundTag lookaround_;
 };
 
 class EnfaStateBuilder {
@@ -232,6 +230,7 @@ public:
     static StatePort Repeat(StatePort sp);
     static StatePort Concat(StatePort sp1, StatePort sp2);
     static StatePort Group(StatePort sp);
+    static StatePort InverseGroup(StatePort sp);
 };
 
 class ENFA {
