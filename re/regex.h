@@ -20,10 +20,12 @@ struct Group {
         NON_CAPTURE,
         LOOK_AHEAD,
         LOOK_BEHIND,
+        ATOMIC,
     } type;
     union {
         size_t capture_id;
         int lookaround_id;
+        int atomic_id;
     };
 };
 
@@ -36,3 +38,6 @@ struct Repeat {
     int max;
     bool has_max;
 };
+
+//#define DEBUG
+#define DEBUG_STATS

@@ -59,7 +59,7 @@ private:
     uint64_t end_;
 };
 
-}
+} // namespace v1
 
 namespace v2 {
 
@@ -68,7 +68,7 @@ struct CaptureTag {
     bool is_begin;
 };
 
-}
+} // namespace v2
 
 class CaptureGroup {
 public:
@@ -87,7 +87,7 @@ public:
     void Begin(size_t pos) {
         if (need_begin_)
         {
-            captured_.push_back({ pos, 0 });
+            captured_.push_back({pos, 0});
             need_begin_ = false;
         }
         events_.emplace_back(true, pos);
@@ -120,6 +120,11 @@ public:
         : origin_(origin) {
     }
 
+    void CopyTo(Capture & c) const {
+        c.~Capture();
+        ::new (&c) Capture(origin_);
+        c.capture_groups_ = capture_groups_;
+    }
     const CaptureGroup & Group(size_t group_id) {
         assert(group_id < capture_groups_.size());
         return capture_groups_[group_id];

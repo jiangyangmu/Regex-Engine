@@ -178,6 +178,10 @@ std::string EnfaState::DebugString(EnfaState * start) {
             o += std::string("\t") +
                 (kv.first->GetLookAroundTag().is_begin ? "LB" : "LE") +
                 std::to_string(kv.first->GetLookAroundTag().id);
+        if (kv.first->HasAtomicTag())
+            o += std::string("\t") +
+                (kv.first->GetAtomicTag().is_begin ? "AB" : "AE") +
+                std::to_string(kv.first->GetAtomicTag().atomic_id);
     }
 
     std::string s;
@@ -333,7 +337,6 @@ EnfaStateBuilder::StatePort EnfaStateBuilder::InverseGroup(StatePort sp) {
     return {in, out};
 }
 
-#define DEBUG
 #ifdef DEBUG
 std::map<const EnfaState *, int> BuildIdMap(const EnfaState * start) {
     std::map<const EnfaState *, int> m;
@@ -363,12 +366,18 @@ struct Thread {
 };
 
 MatchResult MatchWhen(const Thread & start,
-                      std::function<bool(const EnfaState & state)> pred,
+                      std::function<bool(const Thread &)> pred,
                       bool forward_match) {
     const std::string & text = start.capture.origin();
 
+#ifdef DEBUG_STATS
+    static size_t generated_threads = 0;
+    static size_t processed_threads = 0;
+    static std::vector<size_t> stat_save;
+#endif
 #ifdef DEBUG
     static std::map<const EnfaState *, int> debug;
+    static std::string debug_indent;
     if (debug.empty())
         debug = BuildIdMap(start.state);
 #endif
@@ -376,8 +385,16 @@ MatchResult MatchWhen(const Thread & start,
     std::vector<Thread> T = {start};
     while (!T.empty())
     {
+#ifdef DEBUG_STATS
+        ++processed_threads;
+#endif
         Thread t = T.back();
         T.pop_back();
+#ifdef DEBUG
+        std::cout << debug_indent << text << std::endl
+                  << debug_indent << std::string(t.pos, ' ') << "^"
+                  << std::endl;
+#endif
 
         (forward_match ? t.state->SetForwardMode()
                        : t.state->SetBackwordMode());
@@ -385,8 +402,21 @@ MatchResult MatchWhen(const Thread & start,
         if (t.state->HasCaptureTag())
             t.capture.DoCapture(t.state->GetCaptureTag(), t.pos);
 
-        if (pred(*t.state))
+        if (pred(t))
+        {
+#ifdef DEBUG_STATS
+            generated_threads = processed_threads + T.size();
+            std::cout << "Generated Threads: " << generated_threads
+                      << "\tProcessed Threads: " << processed_threads
+                      << std::endl;
+            generated_threads = processed_threads = 0;
+#endif
+#ifdef DEBUG
+            if (debug_indent.size() >= 2)
+                debug_indent.pop_back(), debug_indent.pop_back();
+#endif
             return MatchResult(t.capture, true);
+        }
 
         // look around assertion
         if (t.state->HasLookAroundTag() && t.state->GetLookAroundTag().is_begin)
@@ -398,35 +428,105 @@ MatchResult MatchWhen(const Thread & start,
                               : "lookbehind ")
                       << t.state->GetLookAroundTag().id << " at " << t.pos
                       << std::endl;
+            debug_indent += "  ";
 #endif
 
             int lookaround_id = t.state->GetLookAroundTag().id;
             bool is_forward = t.state->GetLookAroundTag().is_forward;
-            const EnfaState * last_state = nullptr;
-            t.state = t.state->Out();
-            if (MatchWhen(t,
-                          [lookaround_id, &last_state](
-                              const EnfaState & state) mutable -> bool {
-                              last_state = &state;
-                              return state.HasLookAroundTag() &&
-                                  !state.GetLookAroundTag().is_begin &&
-                                  state.GetLookAroundTag().id == lookaround_id;
+            Thread start = {t.pos, t.state->Out(), t.capture};
+#ifdef DEBUG_STATS
+            stat_save.push_back(generated_threads);
+            stat_save.push_back(processed_threads);
+            generated_threads = processed_threads = 0;
+#endif
+            if (MatchWhen(start,
+                          [lookaround_id,
+                           &t](const Thread & current) mutable -> bool {
+                              bool good = current.state->HasLookAroundTag() &&
+                                  !current.state->GetLookAroundTag().is_begin &&
+                                  current.state->GetLookAroundTag().id ==
+                                      lookaround_id;
+                              if (good)
+                                  t.state = current.state;
+                              return good;
                           },
                           is_forward)
                     .matched())
             {
-                assert(last_state);
-                t.state = last_state;
-
+#ifdef DEBUG_STATS
+                processed_threads = stat_save.back();
+                stat_save.pop_back();
+                generated_threads = stat_save.back();
+                stat_save.pop_back();
+#endif
                 (forward_match ? t.state->SetForwardMode()
                                : t.state->SetBackwordMode());
             }
             else
-            { continue; }
+            {
+#ifdef DEBUG_STATS
+                processed_threads = stat_save.back();
+                stat_save.pop_back();
+                generated_threads = stat_save.back();
+                stat_save.pop_back();
+#endif
+                continue;
+            }
+        }
+        else if (t.state->HasAtomicTag() && t.state->GetAtomicTag().is_begin)
+        {
+#ifdef DEBUG
+            std::cout << "Eval atomic " << t.state->GetAtomicTag().atomic_id
+                      << " at " << t.pos << std::endl;
+            debug_indent += "  ";
+#endif
+
+            int atomic_id = t.state->GetAtomicTag().atomic_id;
+            Thread start = {t.pos, t.state->Out(), t.capture};
+#ifdef DEBUG_STATS
+            stat_save.push_back(generated_threads);
+            stat_save.push_back(processed_threads);
+            generated_threads = processed_threads = 0;
+#endif
+            if (MatchWhen(
+                    start,
+                    [atomic_id, &t](const Thread & current) mutable -> bool {
+                        bool good = current.state->HasAtomicTag() &&
+                            !current.state->GetAtomicTag().is_begin &&
+                            current.state->GetAtomicTag().atomic_id ==
+                                atomic_id;
+                        if (good)
+                        {
+                            t.pos = current.pos;
+                            t.state = current.state;
+                            current.capture.CopyTo(t.capture);
+                        }
+                        return good;
+                    },
+                    true)
+                    .matched())
+            {
+#ifdef DEBUG_STATS
+                processed_threads = stat_save.back();
+                stat_save.pop_back();
+                generated_threads = stat_save.back();
+                stat_save.pop_back();
+#endif
+            }
+            else
+            {
+#ifdef DEBUG_STATS
+                processed_threads = stat_save.back();
+                stat_save.pop_back();
+                generated_threads = stat_save.back();
+                stat_save.pop_back();
+#endif
+                continue;
+            }
         }
 
 #ifdef DEBUG
-        std::cout << debug[t.state] << ' ';
+        std::cout << debug_indent << debug[t.state] << ' ';
 #endif
 
         if (t.state->IsChar())
@@ -502,6 +602,17 @@ MatchResult MatchWhen(const Thread & start,
         std::cout << std::endl;
 #endif
     }
+
+#ifdef DEBUG_STATS
+    generated_threads = processed_threads + T.size();
+    std::cout << "Generated Threads: " << generated_threads
+              << "\tProcessed Threads: " << processed_threads << std::endl;
+    generated_threads = processed_threads = 0;
+#endif
+#ifdef DEBUG
+    if (debug_indent.size() >= 2)
+        debug_indent.pop_back(), debug_indent.pop_back();
+#endif
     return MatchResult(Capture(start.capture.origin()), false);
 }
 
@@ -509,7 +620,7 @@ MatchResult ENFA::Match(const std::string & text) const {
     Thread t = {0, start_, Capture(text)};
     return MatchWhen(
         t,
-        [](const EnfaState & state) -> bool { return state.IsFinal(); },
+        [](const Thread & current) -> bool { return current.state->IsFinal(); },
         true);
 }
 

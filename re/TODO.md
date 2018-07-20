@@ -43,7 +43,8 @@ Design
     * non-capture notation: a(?:bc)
        * not occupy group id.
     * non-consumption capability
-    * [non-consumption] lookaround assertion: a(?=yes)y (?<no
+    * [non-consumption] lookaround assertion: a(?=yes)y a(?<no)n
+    * atomic capability (no backtracking)
 * Algorithm
   * regex => epsilon-NFA
   * epsilon-NFA => DFA
@@ -51,12 +52,12 @@ Design
   * simulate DFA
 
 * Advanced features
+  * [repeat] repeat range.
   * [group, non-capturing] non-backtracking property
   * [group, capturing] name property: a(?<lang>c|cpp)
   * [group] matching configuration.
   * [alter] conditional or by expression: a(?(b)bob|peter)
   * [alter] conditional or by named group: a(?(name)human|robot)
-  * [repeat] repeat range.
   * [repeat] greedy, reluctant, possessive.
 
 Implementation

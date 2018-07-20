@@ -1,8 +1,8 @@
 #include "stdafx.h"
 
 #include "compile.h"
-
 #include "regex.h"
+#include "util.h"
 
 // postfix node
 struct Node {
@@ -54,7 +54,8 @@ struct Node {
                 s += "BACKREF(" + std::to_string(backref.capture_id) + ")";
                 break;
             case REPEAT:
-                s += "REPEAT";
+                s += "REPEAT(" + std::to_string(repeat.min) + "," +
+                    (repeat.has_max ? std::to_string(repeat.max) : "") + ")";
                 break;
             case CONCAT:
                 s += "CONCAT";
@@ -77,6 +78,9 @@ struct Node {
                         break;
                     case Group::LOOK_BEHIND:
                         s += "LOOKBEHIND";
+                        break;
+                    case Group::ATOMIC:
+                        s += "ATOMIC";
                         break;
                 }
                 break;
@@ -101,6 +105,7 @@ public:
     explicit RegexParser(const char * regex)
         : capture_id_gen_(0)
         , lookaround_id_gen_(0)
+        , atomic_id_gen_(0)
         , regex_(regex) {
         group();
     }
@@ -115,6 +120,28 @@ private:
         {
             ++regex_;
             Repeat r = {0, 0, false};
+            nl_.emplace_back(r);
+        }
+        else if (*regex_ == '{')
+        {
+            ++regex_;
+            Repeat r = {0, 0, false};
+
+            assert(*regex_ == ',' || IsDigit(*regex_));
+            if (IsDigit(*regex_))
+                r.min = ParseInt32(&regex_);
+            assert(*regex_ == ',');
+            ++regex_;
+            if (IsDigit(*regex_))
+            {
+                r.max = ParseInt32(&regex_);
+                r.has_max = true;
+                assert(r.max >= r.min);
+            }
+
+            assert(*regex_ == '}');
+            ++regex_;
+
             nl_.emplace_back(r);
         }
     }
@@ -183,6 +210,8 @@ private:
         else if (*regex_ == '?' && *(regex_ + 1) == '<')
             g.type = Group::LOOK_BEHIND, g.lookaround_id = lookaround_id_gen_++,
             regex_ += 2;
+        else if (*regex_ == '?' && *(regex_ + 1) == '>')
+            g.type = Group::ATOMIC, g.atomic_id = atomic_id_gen_++, regex_ += 2;
         else
             g.capture_id = capture_id_gen_++;
 
@@ -196,6 +225,7 @@ private:
 
     int capture_id_gen_;
     int lookaround_id_gen_;
+    int atomic_id_gen_;
     const char * regex_;
     NodeList nl_;
 };
@@ -319,21 +349,22 @@ EnfaState * PostfixToEnfa(NodeList & nl) {
 }
 
 EnfaState * RegexToEnfa(const std::string & regex) {
-    NodeList nl = RegexToPostfix(regex.data());
-    return PostfixToEnfa(nl);
-}
-
-EnfaState * RegexToEnfaDebug(const std::string & regex) {
+#ifdef DEBUG
     std::cout << "pattern: " << regex << std::endl;
+#endif
     NodeList nl = RegexToPostfix(regex.data());
+#ifdef DEBUG
     for (auto n : nl)
     {
         std::cout << n.DebugString() << " ";
     }
     std::cout << std::endl;
+#endif
 
     EnfaState * start = PostfixToEnfa(nl);
+#ifdef DEBUG
     std::cout << EnfaState::DebugString(start) << std::endl;
+#endif
     return start;
 }
 
@@ -409,6 +440,11 @@ EnfaState * PostfixToEnfa(NodeList & nl) {
                 }
                 else if (n.group.type == Group::NON_CAPTURE)
                 {}
+                else if (n.group.type == Group::ATOMIC)
+                {
+                    sp.in->SetAtomicTag({n.group.atomic_id, true});
+                    sp.out->SetAtomicTag({n.group.atomic_id, false});
+                }
                 else
                     assert(false);
                 push(sp);
@@ -430,21 +466,22 @@ EnfaState * PostfixToEnfa(NodeList & nl) {
 }
 
 EnfaState * RegexToEnfa(const std::string & regex) {
-    NodeList nl = RegexToPostfix(regex.data());
-    return PostfixToEnfa(nl);
-}
-
-EnfaState * RegexToEnfaDebug(const std::string & regex) {
+#ifdef DEBUG
     std::cout << "pattern: " << regex << std::endl;
+#endif
     NodeList nl = RegexToPostfix(regex.data());
+#ifdef DEBUG
     for (auto n : nl)
     {
         std::cout << n.DebugString() << " ";
     }
     std::cout << std::endl;
+#endif
 
     EnfaState * start = PostfixToEnfa(nl);
+#ifdef DEBUG
     std::cout << EnfaState::DebugString(start) << std::endl;
+#endif
     return start;
 }
 
@@ -452,12 +489,12 @@ EnfaState * RegexToEnfaDebug(const std::string & regex) {
 
 v1::ENFA FABuilder::CompileV1(std::string regex) {
     v1::ENFA enfa;
-    enfa.start_ = v1::RegexToEnfaDebug(regex);
+    enfa.start_ = v1::RegexToEnfa(regex);
     return enfa;
 }
 
 v2::ENFA FABuilder::CompileV2(std::string regex) {
     v2::ENFA enfa;
-    enfa.start_ = v2::RegexToEnfaDebug(regex);
+    enfa.start_ = v2::RegexToEnfa(regex);
     return enfa;
 }

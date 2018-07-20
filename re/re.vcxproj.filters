@@ -32,6 +32,9 @@
     <ClInclude Include="regex.h">
       <Filter>Source</Filter>
     </ClInclude>
+    <ClInclude Include="util.h">
+      <Filter>Source</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -44,6 +47,9 @@
       <Filter>Source</Filter>
     </ClCompile>
     <ClCompile Include="compile.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="unittest.cpp">
       <Filter>Source</Filter>
     </ClCompile>
   </ItemGroup>

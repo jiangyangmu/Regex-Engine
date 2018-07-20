@@ -108,6 +108,11 @@ private:
 
 namespace v2 {
 
+struct AtomicTag {
+    int atomic_id;
+    bool is_begin;
+};
+
 class EnfaState {
     friend class EnfaStateBuilder;
 
@@ -160,6 +165,12 @@ public:
     const LookAroundTag & GetLookAroundTag() const {
         return lookaround_;
     }
+    bool HasAtomicTag() const {
+        return has_atomic_;
+    }
+    const AtomicTag & GetAtomicTag() const {
+        return atomic_;
+    }
 
     void SetFinal() {
         is_final_ = true;
@@ -171,6 +182,10 @@ public:
     void SetLookAroundTag(LookAroundTag tag) {
         has_lookaround_ = true;
         lookaround_ = tag;
+    }
+    void SetAtomicTag(AtomicTag tag) {
+        has_atomic_ = true;
+        atomic_ = tag;
     }
 
     void SetForwardMode() const {
@@ -216,6 +231,8 @@ private:
     CaptureTag capture_;
     bool has_lookaround_;
     LookAroundTag lookaround_;
+    bool has_atomic_;
+    AtomicTag atomic_;
 };
 
 class EnfaStateBuilder {
