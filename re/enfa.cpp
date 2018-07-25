@@ -182,6 +182,13 @@ std::string EnfaState::DebugString(EnfaState * start) {
             o += std::string("\t") +
                 (kv.first->GetAtomicTag().is_begin ? "AB" : "AE") +
                 std::to_string(kv.first->GetAtomicTag().atomic_id);
+        if (kv.first->HasRepeatTag())
+            o += std::string("\t") + "{" +
+                std::to_string(kv.first->GetRepeatTag().min) + "," +
+                (kv.first->GetRepeatTag().has_max
+                     ? std::to_string(kv.first->GetRepeatTag().max)
+                     : "") +
+                "}";
     }
 
     std::string s;
@@ -245,7 +252,8 @@ EnfaStateBuilder::StatePort EnfaStateBuilder::Alter(StatePort sp1,
     return {in, out};
 }
 
-EnfaStateBuilder::StatePort EnfaStateBuilder::Repeat(StatePort sp) {
+EnfaStateBuilder::StatePort EnfaStateBuilder::Repeat(StatePort sp,
+                                                     struct Repeat rep) {
     EnfaState * in = new EnfaState();
     EnfaState * out = new EnfaState();
 
@@ -261,16 +269,21 @@ EnfaStateBuilder::StatePort EnfaStateBuilder::Repeat(StatePort sp) {
     };
 
     in->forward.out_.push_back(sp.in);
-    in->forward.out_.push_back(out);
+    if (rep.min == 0)
+        in->forward.out_.push_back(out);
 
     out->backword.out_.push_back(sp.out);
-    out->backword.out_.push_back(in);
+    if (rep.min == 0)
+        out->backword.out_.push_back(in);
 
     sp.in->backword.out_.push_back(sp.out);
     sp.in->backword.out_.push_back(in);
 
+    // Match algorithm depends on push order here.
     sp.out->forward.out_.push_back(sp.in);
     sp.out->forward.out_.push_back(out);
+
+    sp.out->SetRepeatTag({rep.repeat_id, rep.min, rep.max, rep.has_max});
 
     return {in, out};
 }
@@ -363,6 +376,7 @@ struct Thread {
     size_t pos;
     const EnfaState * state;
     Capture capture;
+    std::vector<std::pair<int, size_t>> id_to_repcnt;
 };
 
 MatchResult MatchWhen(const Thread & start,
@@ -534,7 +548,8 @@ MatchResult MatchWhen(const Thread & start,
             if (forward_match)
             {
                 if (t.pos < text.size() && t.state->Char() == text[t.pos])
-                    T.push_back({t.pos + 1, t.state->Out(), t.capture})
+                    T.push_back(
+                        {t.pos + 1, t.state->Out(), t.capture, t.id_to_repcnt})
 #ifdef DEBUG
                         ,
                         std::cout << '+' << debug[t.state->Out()]
@@ -544,7 +559,8 @@ MatchResult MatchWhen(const Thread & start,
             else
             {
                 if (t.pos > 0 && t.state->Char() == text[t.pos - 1])
-                    T.push_back({t.pos - 1, t.state->Out(), t.capture})
+                    T.push_back(
+                        {t.pos - 1, t.state->Out(), t.capture, t.id_to_repcnt})
 #ifdef DEBUG
                         ,
                         std::cout << '+' << debug[t.state->Out()]
@@ -569,7 +585,10 @@ MatchResult MatchWhen(const Thread & start,
                                     text.data() + t.pos,
                                     text.data() + t.pos + delta));
                     if (match)
-                        T.push_back({t.pos + delta, t.state->Out(), t.capture});
+                        T.push_back({t.pos + delta,
+                                     t.state->Out(),
+                                     t.capture,
+                                     t.id_to_repcnt});
                 }
                 else
                 {
@@ -580,22 +599,72 @@ MatchResult MatchWhen(const Thread & start,
                                     text.data() + t.pos - delta,
                                     text.data() + t.pos));
                     if (match)
-                        T.push_back({t.pos - delta, t.state->Out(), t.capture});
+                        T.push_back({t.pos - delta,
+                                     t.state->Out(),
+                                     t.capture,
+                                     t.id_to_repcnt});
                 }
             }
         }
         else if (t.state->IsEpsilon())
         {
-            for (auto out = t.state->MultipleOut().rbegin();
-                 out != t.state->MultipleOut().rend();
-                 ++out)
+            if (t.state->HasRepeatTag())
             {
-                T.push_back({t.pos, *out, t.capture})
+                auto repeat = t.state->GetRepeatTag();
+                if (t.id_to_repcnt.empty() ||
+                    t.id_to_repcnt.back().first != repeat.repeat_id)
+                {
+                    t.id_to_repcnt.emplace_back(repeat.repeat_id, 0);
+                }
+                t.id_to_repcnt.back().second += 1;
+
+                auto outs = t.state->MultipleOut();
+                assert(outs.size() == 2);
+
+                size_t current = t.id_to_repcnt.back().second;
 #ifdef DEBUG
-                    ,
-                    std::cout << '+' << debug[*out]
+                std::cout << " repeat:" << current << "{" << repeat.min << ","
+                          << (repeat.has_max ? std::to_string(repeat.max) : 0)
+                          << "} ";
 #endif
-                    ;
+                if (current < repeat.min)
+                    T.push_back({t.pos, outs[0], t.capture, t.id_to_repcnt})
+#ifdef DEBUG
+                        ,
+                        std::cout << '+' << debug[outs[0]]
+#endif
+                        ;
+                else if (!repeat.has_max || current < repeat.max)
+                {
+                    T.push_back({t.pos, outs[1], t.capture, t.id_to_repcnt});
+                    T.back().id_to_repcnt.pop_back();
+                    T.push_back({t.pos, outs[0], t.capture, t.id_to_repcnt});
+#ifdef DEBUG
+                    std::cout << '+' << debug[outs[1]] << '+' << debug[outs[0]];
+#endif
+                }
+                else
+                {
+                    T.push_back({t.pos, outs[1], t.capture, t.id_to_repcnt});
+                    T.back().id_to_repcnt.pop_back();
+#ifdef DEBUG
+                    std::cout << '+' << debug[outs[1]];
+#endif
+                }
+            }
+            else
+            {
+                for (auto out = t.state->MultipleOut().rbegin();
+                     out != t.state->MultipleOut().rend();
+                     ++out)
+                {
+                    T.push_back({t.pos, *out, t.capture, t.id_to_repcnt})
+#ifdef DEBUG
+                        ,
+                        std::cout << '+' << debug[*out]
+#endif
+                        ;
+                }
             }
         }
 #ifdef DEBUG

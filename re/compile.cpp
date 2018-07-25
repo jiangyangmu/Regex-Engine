@@ -106,6 +106,7 @@ public:
         : capture_id_gen_(0)
         , lookaround_id_gen_(0)
         , atomic_id_gen_(0)
+        , repeat_id_gen_(0)
         , regex_(regex) {
         group();
     }
@@ -119,13 +120,13 @@ private:
         if (*regex_ == '*')
         {
             ++regex_;
-            Repeat r = {0, 0, false};
+            Repeat r = {repeat_id_gen_++, 0, 0, false};
             nl_.emplace_back(r);
         }
         else if (*regex_ == '{')
         {
             ++regex_;
-            Repeat r = {0, 0, false};
+            Repeat r = {repeat_id_gen_++, 0, 0, false};
 
             assert(*regex_ == ',' || IsDigit(*regex_));
             if (IsDigit(*regex_))
@@ -226,6 +227,7 @@ private:
     int capture_id_gen_;
     int lookaround_id_gen_;
     int atomic_id_gen_;
+    int repeat_id_gen_;
     const char * regex_;
     NodeList nl_;
 };
@@ -401,7 +403,7 @@ EnfaState * PostfixToEnfa(NodeList & nl) {
                 break;
             case Node::REPEAT:
                 sp = pop();
-                push(EnfaStateBuilder::Repeat(sp));
+                push(EnfaStateBuilder::Repeat(sp, n.repeat));
                 break;
             case Node::CONCAT:
                 sp2 = pop();

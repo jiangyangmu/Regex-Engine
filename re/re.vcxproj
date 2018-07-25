@@ -170,6 +170,7 @@
     <ClCompile Include="unittest.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="DESIGN.md" />
     <None Include="TODO.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

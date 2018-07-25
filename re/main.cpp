@@ -24,7 +24,9 @@ int main() {
     // std::string regex = "((?=y)yes(?<s))";
     // std::string regex = "(a{,}b{1,}c{,2}d{3,4})";
 
-    std::string regex = "((?>a*)ab)";
+    //std::string regex = "((?>a*)ab)";
+
+    std::string regex = "((a{1,2}b){,2})";
 
     // v1::ENFA enfa = FABuilder::CompileV1(regex);
     v2::ENFA enfa = FABuilder::CompileV2(regex);

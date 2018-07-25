@@ -58,4 +58,13 @@ void RUN_ALL_TEST() {
     TrueFalse("((?>a*)ab)", "ab", false);
     TrueFalse("((?>a*)ab)", "aab", false);
     TrueFalse("((?>a*)ab)", "aaab", false);
+
+    TrueFalse("(a{1,2}b)", "b", false);
+    TrueFalse("(a{1,2}b)", "ab", true);
+    TrueFalse("(a{1,2}b)", "aab", true);
+    TrueFalse("(a{1,2}b)", "aaab", false);
+    TrueFalse("(a{3,}b)", "aab", false);
+    TrueFalse("(a{3,}b)", "aaab", true);
+    TrueFalse("(a{,4}b)", "aaaab", true);
+    TrueFalse("(a{,4}b)", "aaaaab", false);
 }

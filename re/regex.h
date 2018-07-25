@@ -34,10 +34,11 @@ struct BackReference {
 };
 
 struct Repeat {
-    int min;
-    int max;
+    int repeat_id;
+    size_t min;
+    size_t max;
     bool has_max;
 };
 
 //#define DEBUG
-#define DEBUG_STATS
+//#define DEBUG_STATS

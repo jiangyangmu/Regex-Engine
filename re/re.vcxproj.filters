@@ -54,6 +54,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="DESIGN.md">
+      <Filter>Source</Filter>
+    </None>
     <None Include="TODO.md">
       <Filter>Source</Filter>
     </None>

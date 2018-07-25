@@ -113,6 +113,13 @@ struct AtomicTag {
     bool is_begin;
 };
 
+struct RepeatTag {
+    int repeat_id;
+    size_t min;
+    size_t max;
+    bool has_max;
+};
+
 class EnfaState {
     friend class EnfaStateBuilder;
 
@@ -171,6 +178,12 @@ public:
     const AtomicTag & GetAtomicTag() const {
         return atomic_;
     }
+    bool HasRepeatTag() const {
+        return has_repeat_;
+    }
+    const RepeatTag & GetRepeatTag() const {
+        return repeat_;
+    }
 
     void SetFinal() {
         is_final_ = true;
@@ -186,6 +199,10 @@ public:
     void SetAtomicTag(AtomicTag tag) {
         has_atomic_ = true;
         atomic_ = tag;
+    }
+    void SetRepeatTag(RepeatTag tag) {
+        has_repeat_ =  true;
+        repeat_ = tag;
     }
 
     void SetForwardMode() const {
@@ -233,6 +250,8 @@ private:
     LookAroundTag lookaround_;
     bool has_atomic_;
     AtomicTag atomic_;
+    bool has_repeat_;
+    RepeatTag repeat_;
 };
 
 class EnfaStateBuilder {
@@ -244,7 +263,7 @@ public:
     static StatePort Char(char c);
     static StatePort BackReference(size_t ref_capture_id);
     static StatePort Alter(StatePort sp1, StatePort sp2);
-    static StatePort Repeat(StatePort sp);
+    static StatePort Repeat(StatePort sp, struct Repeat rep);
     static StatePort Concat(StatePort sp1, StatePort sp2);
     static StatePort Group(StatePort sp);
     static StatePort InverseGroup(StatePort sp);
