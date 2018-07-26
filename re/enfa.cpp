@@ -5,137 +5,9 @@
 #include "compile.h"
 #include "enfa.h"
 
-namespace v1 {
-
-std::string EnfaState::DebugString(EnfaState * start) {
-    std::map<EnfaState *, int> m;
-    std::vector<EnfaState *> v = {start};
-    int id = 0;
-    while (!v.empty())
-    {
-        EnfaState * s = v.back();
-        v.pop_back();
-
-        if (s && m.find(s) == m.end())
-        {
-            m[s] = id++;
-            v.push_back(s->out1_);
-            v.push_back(s->out_);
-        }
-    }
-
-    std::map<int, std::string> out;
-    for (auto kv : m)
-    {
-        std::string & o = out[kv.second];
-        if (kv.first->IsChar())
-            o += "'", o += kv.first->type_,
-                o += "' [" + std::to_string(m[kv.first->out_]) + "]";
-        else if (kv.first->IsBackReference())
-            o += "\\", o += (kv.first->type_ - BACKREF_0_ + '0'),
-                o += " [" + std::to_string(m[kv.first->out_]) + "]";
-        else if (kv.first->IsSplit())
-            o += "<   [" + std::to_string(m[kv.first->out_]) + "][" +
-                std::to_string(m[kv.first->out1_]) + "]";
-        else if (kv.first->IsFinal())
-            o += "o";
-        o += "\t[" + kv.first->tag_.DebugString() + "]";
-    }
-
-    std::string s;
-    for (auto kv : out)
-        s += "[" + std::to_string(kv.first) + "] " + kv.second + "\n";
-    return s;
-}
-
-EnfaState * EnfaStateBuilder::NewCharState(char c) {
-    EnfaState * s = new EnfaState;
-    s->type_ = c;
-    s->out_ = s->out1_ = nullptr;
-    return s;
-}
-
-EnfaState * EnfaStateBuilder::NewBackReferenceState(size_t ref_group_id) {
-    assert(ref_group_id >= 0 && ref_group_id <= 9);
-    EnfaState * s = new EnfaState;
-    s->type_ = EnfaState::BACKREF_0_ + ref_group_id;
-    s->out_ = s->out1_ = nullptr;
-    return s;
-}
-
-EnfaState * EnfaStateBuilder::NewSplitState(EnfaState * out, EnfaState * out1) {
-    EnfaState * s = new EnfaState;
-    s->type_ = EnfaState::SPLIT;
-    s->out_ = out;
-    s->out1_ = out1;
-    return s;
-}
-
-EnfaState * EnfaStateBuilder::NewFinalState() {
-    EnfaState * s = new EnfaState;
-    s->type_ = EnfaState::FINAL;
-    s->out_ = s->out1_ = nullptr;
-    return s;
-}
-
-MatchResult ENFA::Match(const std::string & text) const {
-    struct Thread {
-        size_t pos;
-        const EnfaState * state;
-        Capture capture;
-    };
-
-    std::deque<Thread> T = {{0, start_, Capture(text)}};
-    while (!T.empty())
-    {
-        Thread t = T.front();
-        T.pop_front();
-
-        t.capture.DoCapture(t.state->Tag(), t.pos);
-
-        // adjust pos based on look around
-
-        if (t.state->IsChar())
-        {
-            if (t.pos < text.size() && t.state->Char() == text[t.pos])
-                T.push_back({t.pos + 1, t.state->Out(), t.capture});
-        }
-        else if (t.state->IsBackReference())
-        {
-            auto group = t.capture.Group(t.state->BackReference());
-            if (group.IsComplete())
-            {
-                auto range = group.Last();
-                int delta = range.second - range.first;
-                bool match = (t.pos == range.first) ||
-                    (t.pos + delta <= text.size() &&
-                     std::equal(text.data() + range.first,
-                                text.data() + range.second,
-                                text.data() + t.pos,
-                                text.data() + t.pos + delta));
-                if (match)
-                    T.push_back({t.pos + delta, t.state->Out(), t.capture});
-            }
-        }
-        else if (t.state->IsSplit())
-        {
-            T.push_back({t.pos, t.state->Out(), t.capture});
-            T.push_back({t.pos, t.state->Out1(), t.capture});
-        }
-        else if (t.state->IsFinal())
-        {
-            if (t.pos == text.size())
-                return MatchResult(t.capture, true);
-        }
-    }
-    return MatchResult(Capture(text), false);
-}
-
-} // namespace v1
-
 namespace v2 {
 
-std::string EnfaState::DebugString(EnfaState * start) {
+CharArray EnfaState::DebugString(EnfaState * start) {
     std::map<const EnfaState *, int> m;
     std::vector<EnfaState *> v = {start};
     int id = 0;
@@ -151,53 +23,53 @@ std::string EnfaState::DebugString(EnfaState * start) {
         }
     }
 
-    std::map<int, std::string> out;
+    std::map<int, CharArray> out;
     for (auto kv : m)
     {
-        std::string & o = out[kv.second];
+        CharArray & o = out[kv.second];
         if (kv.first->IsChar())
-            o += "'", o += kv.first->Char(),
-                o += "' [" + std::to_string(m[kv.first->Out()]) + "]";
+            o += L"'", o += kv.first->Char(),
+                o += L"' [" + std::to_wstring(m[kv.first->Out()]) + L"]";
         else if (kv.first->IsBackReference())
-            o += "\\", o += std::to_string(kv.first->BackReference()),
-                o += " [" + std::to_string(m[kv.first->Out()]) + "]";
+            o += L"\\", o += std::to_wstring(kv.first->BackReference()),
+                o += L" [" + std::to_wstring(m[kv.first->Out()]) + L"]";
         else if (kv.first->IsEpsilon())
         {
-            o += "<   ";
+            o += L"<   ";
             for (EnfaState * out : kv.first->MultipleOut())
-                o += "[" + std::to_string(m[out]) + "]";
+                o += L"[" + std::to_wstring(m[out]) + L"]";
         }
 
         if (kv.first->IsFinal())
-            o += " FINAL";
+            o += L" FINAL";
         if (kv.first->HasCaptureTag())
-            o += std::string("\t") +
-                (kv.first->GetCaptureTag().is_begin ? "B" : "E") +
-                std::to_string(kv.first->GetCaptureTag().capture_id);
+            o += std::wstring(L"\t") +
+                (kv.first->GetCaptureTag().is_begin ? L"B" : L"E") +
+                std::to_wstring(kv.first->GetCaptureTag().capture_id);
         if (kv.first->HasLookAroundTag())
-            o += std::string("\t") +
-                (kv.first->GetLookAroundTag().is_begin ? "LB" : "LE") +
-                std::to_string(kv.first->GetLookAroundTag().id);
+            o += std::wstring(L"\t") +
+                (kv.first->GetLookAroundTag().is_begin ? L"LB" : L"LE") +
+                std::to_wstring(kv.first->GetLookAroundTag().id);
         if (kv.first->HasAtomicTag())
-            o += std::string("\t") +
-                (kv.first->GetAtomicTag().is_begin ? "AB" : "AE") +
-                std::to_string(kv.first->GetAtomicTag().atomic_id);
+            o += std::wstring(L"\t") +
+                (kv.first->GetAtomicTag().is_begin ? L"AB" : L"AE") +
+                std::to_wstring(kv.first->GetAtomicTag().atomic_id);
         if (kv.first->HasRepeatTag())
-            o += std::string("\t") + "{" +
-                std::to_string(kv.first->GetRepeatTag().min) + "," +
+            o += std::wstring(L"\t") + L"{" +
+                std::to_wstring(kv.first->GetRepeatTag().min) + L"," +
                 (kv.first->GetRepeatTag().has_max
-                     ? std::to_string(kv.first->GetRepeatTag().max)
-                     : "") +
-                "}";
+                     ? std::to_wstring(kv.first->GetRepeatTag().max)
+                     : L"") +
+                L"}";
     }
 
-    std::string s;
+    CharArray s;
     for (auto kv : out)
-        s += "[" + std::to_string(kv.first) + "] " + kv.second + "\n";
+        s += L"[" + std::to_wstring(kv.first) + L"] " + kv.second + L"\n";
     return s;
 }
 
-EnfaStateBuilder::StatePort EnfaStateBuilder::Char(char c) {
+EnfaStateBuilder::StatePort EnfaStateBuilder::Char(::Char::Type c) {
     EnfaState * in = new EnfaState();
     EnfaState * out = new EnfaState();
     in->forward = out->backword = {
@@ -382,7 +254,7 @@ struct Thread {
 MatchResult MatchWhen(const Thread & start,
                       std::function<bool(const Thread &)> pred,
                       bool forward_match) {
-    const std::string & text = start.capture.origin();
+    const CharArray & text = start.capture.origin();
 
 #ifdef DEBUG_STATS
     static size_t generated_threads = 0;
@@ -391,7 +263,7 @@ MatchResult MatchWhen(const Thread & start,
 #endif
 #ifdef DEBUG
     static std::map<const EnfaState *, int> debug;
-    static std::string debug_indent;
+    static std::wstring debug_indent;
     if (debug.empty())
         debug = BuildIdMap(start.state);
 #endif
@@ -405,9 +277,10 @@ MatchResult MatchWhen(const Thread & start,
         Thread t = T.back();
         T.pop_back();
 #ifdef DEBUG
-        std::cout << debug_indent << text << std::endl
-                  << debug_indent << std::string(t.pos, ' ') << "^"
-                  << std::endl;
+        std::wcout << debug_indent;
+        std::wcout << text << std::endl;
+        std::wcout << debug_indent << std::wstring(t.pos, ' ') << '^'
+                   << std::endl;
 #endif
 
         (forward_match ? t.state->SetForwardMode()
@@ -420,9 +293,9 @@ MatchResult MatchWhen(const Thread & start,
         {
 #ifdef DEBUG_STATS
             generated_threads = processed_threads + T.size();
-            std::cout << "Generated Threads: " << generated_threads
-                      << "\tProcessed Threads: " << processed_threads
-                      << std::endl;
+            std::wcout << "Generated Threads: " << generated_threads
+                       << "\tProcessed Threads: " << processed_threads
+                       << std::endl;
             generated_threads = processed_threads = 0;
 #endif
 #ifdef DEBUG
@@ -436,13 +309,13 @@ MatchResult MatchWhen(const Thread & start,
         if (t.state->HasLookAroundTag() && t.state->GetLookAroundTag().is_begin)
         {
 #ifdef DEBUG
-            std::cout << "Eval "
-                      << (t.state->GetLookAroundTag().is_forward
-                              ? "lookahead "
-                              : "lookbehind ")
-                      << t.state->GetLookAroundTag().id << " at " << t.pos
-                      << std::endl;
-            debug_indent += "  ";
+            std::wcout << L"Eval "
+                       << (t.state->GetLookAroundTag().is_forward
+                               ? L"lookahead "
+                               : L"lookbehind ")
+                       << t.state->GetLookAroundTag().id << L" at " << t.pos
+                       << std::endl;
+            debug_indent += L"  ";
 #endif
 
             int lookaround_id = t.state->GetLookAroundTag().id;
@@ -490,9 +363,9 @@ MatchResult MatchWhen(const Thread & start,
         else if (t.state->HasAtomicTag() && t.state->GetAtomicTag().is_begin)
         {
 #ifdef DEBUG
-            std::cout << "Eval atomic " << t.state->GetAtomicTag().atomic_id
-                      << " at " << t.pos << std::endl;
-            debug_indent += "  ";
+            std::wcout << "Eval atomic " << t.state->GetAtomicTag().atomic_id
+                       << " at " << t.pos << std::endl;
+            debug_indent += L"  ";
 #endif
 
             int atomic_id = t.state->GetAtomicTag().atomic_id;
@@ -540,7 +413,7 @@ MatchResult MatchWhen(const Thread & start,
         }
 
 #ifdef DEBUG
-        std::cout << debug_indent << debug[t.state] << ' ';
+        std::wcout << debug_indent << debug[t.state] << ' ';
 #endif
 
         if (t.state->IsChar())
@@ -552,7 +425,7 @@ MatchResult MatchWhen(const Thread & start,
                         {t.pos + 1, t.state->Out(), t.capture, t.id_to_repcnt})
 #ifdef DEBUG
                         ,
-                        std::cout << '+' << debug[t.state->Out()]
+                        std::wcout << '+' << debug[t.state->Out()]
 #endif
                         ;
             }
@@ -563,7 +436,7 @@ MatchResult MatchWhen(const Thread & start,
                         {t.pos - 1, t.state->Out(), t.capture, t.id_to_repcnt})
 #ifdef DEBUG
                         ,
-                        std::cout << '+' << debug[t.state->Out()]
+                        std::wcout << '+' << debug[t.state->Out()]
 #endif
                         ;
             }
@@ -623,15 +496,16 @@ MatchResult MatchWhen(const Thread & start,
 
                 size_t current = t.id_to_repcnt.back().second;
 #ifdef DEBUG
-                std::cout << " repeat:" << current << "{" << repeat.min << ","
-                          << (repeat.has_max ? std::to_string(repeat.max) : 0)
-                          << "} ";
+                std::wcout << " repeat:" << current << "{" << repeat.min << ","
+                           << (repeat.has_max ? std::to_wstring(repeat.max)
+                                              : L"")
+                           << "} ";
 #endif
                 if (current < repeat.min)
                     T.push_back({t.pos, outs[0], t.capture, t.id_to_repcnt})
 #ifdef DEBUG
                         ,
-                        std::cout << '+' << debug[outs[0]]
+                        std::wcout << '+' << debug[outs[0]]
 #endif
                         ;
                 else if (!repeat.has_max || current < repeat.max)
@@ -640,7 +514,8 @@ MatchResult MatchWhen(const Thread & start,
                     T.back().id_to_repcnt.pop_back();
                     T.push_back({t.pos, outs[0], t.capture, t.id_to_repcnt});
 #ifdef DEBUG
-                    std::cout << '+' << debug[outs[1]] << '+' << debug[outs[0]];
+                    std::wcout << '+' << debug[outs[1]] << '+'
+                               << debug[outs[0]];
 #endif
                 }
                 else
@@ -648,7 +523,7 @@ MatchResult MatchWhen(const Thread & start,
                     T.push_back({t.pos, outs[1], t.capture, t.id_to_repcnt});
                     T.back().id_to_repcnt.pop_back();
 #ifdef DEBUG
-                    std::cout << '+' << debug[outs[1]];
+                    std::wcout << '+' << debug[outs[1]];
 #endif
                 }
             }
@@ -661,21 +536,21 @@ MatchResult MatchWhen(const Thread & start,
                     T.push_back({t.pos, *out, t.capture, t.id_to_repcnt})
 #ifdef DEBUG
                         ,
-                        std::cout << '+' << debug[*out]
+                        std::wcout << '+' << debug[*out]
 #endif
                         ;
                 }
             }
         }
 #ifdef DEBUG
-        std::cout << std::endl;
+        std::wcout << std::endl;
 #endif
     }
 
 #ifdef DEBUG_STATS
     generated_threads = processed_threads + T.size();
-    std::cout << "Generated Threads: " << generated_threads
-              << "\tProcessed Threads: " << processed_threads << std::endl;
+    std::wcout << "Generated Threads: " << generated_threads
+               << "\tProcessed Threads: " << processed_threads << std::endl;
     generated_threads = processed_threads = 0;
 #endif
 #ifdef DEBUG
@@ -685,7 +560,7 @@ MatchResult MatchWhen(const Thread & start,
     return MatchResult(Capture(start.capture.origin()), false);
 }
 
-MatchResult ENFA::Match(const std::string & text) const {
+MatchResult ENFA::Match(const CharArray & text) const {
     Thread t = {0, start_, Capture(text)};
     return MatchWhen(
         t,

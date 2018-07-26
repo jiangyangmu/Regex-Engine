@@ -38,49 +38,49 @@ struct Node {
         assert(type == CONCAT || type == ALTER || type == NULL_INPUT);
     }
 
-    std::string DebugString() const {
-        std::string s;
+    CharArray DebugString() const {
+        CharArray s;
         switch (type)
         {
             case NULL_INPUT:
-                s += "INPUT()";
+                s += L"INPUT()";
                 break;
             case CHAR_INPUT:
-                s += "INPUT(";
+                s += L"INPUT(";
                 s += chr.c;
-                s += ")";
+                s += L")";
                 break;
             case BACKREF_INPUT:
-                s += "BACKREF(" + std::to_string(backref.capture_id) + ")";
+                s += L"BACKREF(" + std::to_wstring(backref.capture_id) + L")";
                 break;
             case REPEAT:
-                s += "REPEAT(" + std::to_string(repeat.min) + "," +
-                    (repeat.has_max ? std::to_string(repeat.max) : "") + ")";
+                s += L"REPEAT(" + std::to_wstring(repeat.min) + L"," +
+                    (repeat.has_max ? std::to_wstring(repeat.max) : L"") + L")";
                 break;
             case CONCAT:
-                s += "CONCAT";
+                s += L"CONCAT";
                 break;
             case ALTER:
-                s += "ALTER";
+                s += L"ALTER";
                 break;
             case GROUP:
                 switch (group.type)
                 {
                     case Group::CAPTURE:
-                        s +=
-                            "CAPTURE(" + std::to_string(group.capture_id) + ")";
+                        s += L"CAPTURE(" + std::to_wstring(group.capture_id) +
+                            L")";
                         break;
                     case Group::NON_CAPTURE:
-                        s += "NON_CAPTURE";
+                        s += L"NON_CAPTURE";
                         break;
                     case Group::LOOK_AHEAD:
-                        s += "LOOKAHEAD";
+                        s += L"LOOKAHEAD";
                         break;
                     case Group::LOOK_BEHIND:
-                        s += "LOOKBEHIND";
+                        s += L"LOOKBEHIND";
                         break;
                     case Group::ATOMIC:
-                        s += "ATOMIC";
+                        s += L"ATOMIC";
                         break;
                 }
                 break;
@@ -102,7 +102,7 @@ typedef std::vector<Node> NodeList;
 
 class RegexParser {
 public:
-    explicit RegexParser(const char * regex)
+    explicit RegexParser(const Char::Type * regex)
         : capture_id_gen_(0)
         , lookaround_id_gen_(0)
         , atomic_id_gen_(0)
@@ -147,14 +147,7 @@ private:
         }
     }
     bool item() {
-        if (*regex_ >= 'a' && *regex_ <= 'z')
-        {
-            Char c = {*regex_++};
-            nl_.emplace_back(c);
-            repeat();
-            return true;
-        }
-        else if (*regex_ == '\\')
+        if (*regex_ == '\\')
         {
             ++regex_;
             assert(*regex_ >= '0' && *regex_ <= '9');
@@ -166,6 +159,14 @@ private:
         else if (*regex_ == '(')
         {
             group();
+            repeat();
+            return true;
+        }
+        else if (*regex_ != ')' && *regex_ != '|')
+        {
+            // TODO: check not special char
+            Char c = {*regex_++};
+            nl_.emplace_back(c);
             repeat();
             return true;
         }
@@ -228,7 +229,7 @@ private:
     int lookaround_id_gen_;
     int atomic_id_gen_;
     int repeat_id_gen_;
-    const char * regex_;
+    const Char::Type * regex_;
     NodeList nl_;
 };
 
@@ -236,141 +237,9 @@ private:
  * regex string to postfix
  */
 
-NodeList RegexToPostfix(const char * regex) {
+NodeList RegexToPostfix(const Char::Type * regex) {
     return RegexParser(regex).get();
 }
-
-namespace v1 {
-
-/*
- * postfix to epsilon-NFA
- */
-
-// epsilon-NFA state-set port
-struct StatePort {
-    EnfaState * in; // for read
-    std::set<EnfaState **> out; // for write
-
-    // capturing group tag
-    CaptureTag tag;
-};
-
-EnfaState * PostfixToEnfa(NodeList & nl) {
-    std::vector<StatePort> st;
-
-#define push(x) st.emplace_back(std::move(x))
-#define pop() st.back(), st.pop_back()
-#define patch(out, tag, in)             \
-    for (auto __o : (out))              \
-    {                                   \
-        *__o = (in);                    \
-        (in)->MutableTag()->Merge(tag); \
-    }
-
-    for (Node & n : nl)
-    {
-        EnfaState * s;
-        StatePort sp, sp1, sp2;
-        switch (n.type)
-        {
-            case Node::NULL_INPUT:
-                // TODO: support null branch
-                assert(false);
-                break;
-            case Node::CHAR_INPUT:
-                s = EnfaStateBuilder::NewCharState(n.chr.c);
-                sp.in = s;
-                sp.out.insert(s->MutableOut());
-                push(sp);
-                break;
-            case Node::BACKREF_INPUT:
-                s = EnfaStateBuilder::NewBackReferenceState(
-                    n.backref.capture_id);
-                sp.in = s;
-                sp.out.insert(s->MutableOut());
-                push(sp);
-                break;
-            case Node::REPEAT:
-                sp1 = pop();
-                s = EnfaStateBuilder::NewSplitState(sp1.in, nullptr);
-                patch(sp1.out, sp1.tag, s);
-
-                sp.in = s;
-                sp.out.insert(s->MutableOut1());
-                push(sp);
-                break;
-            case Node::CONCAT:
-                sp2 = pop();
-                sp1 = pop();
-                patch(sp1.out, sp1.tag, sp2.in);
-
-                sp.in = sp1.in;
-                sp.out = sp2.out;
-                sp.tag = sp2.tag;
-                push(sp);
-                break;
-            case Node::ALTER:
-                sp2 = pop();
-                sp1 = pop();
-
-                s = EnfaStateBuilder::NewSplitState(sp1.in, sp2.in);
-
-                sp.in = s;
-                sp.out = sp1.out;
-                sp.out.insert(sp2.out.begin(), sp2.out.end());
-                sp.tag = sp1.tag;
-                sp.tag.Merge(sp2.tag);
-                push(sp);
-                break;
-            case Node::GROUP:
-                if (n.group.type == Group::CAPTURE)
-                {
-                    sp = pop();
-                    sp.in->MutableTag()->AddBegin(n.group.capture_id);
-                    sp.tag.AddEnd(n.group.capture_id);
-                    push(sp);
-                }
-                break;
-            default:
-                break;
-        }
-    }
-
-    StatePort sp;
-    EnfaState * s;
-    sp = pop();
-    assert(st.empty());
-    s = EnfaStateBuilder::NewFinalState();
-    patch(sp.out, sp.tag, s);
-
-#undef patch
-#undef pop
-#undef push
-
-    return sp.in;
-}
-
-EnfaState * RegexToEnfa(const std::string & regex) {
-#ifdef DEBUG
-    std::cout << "pattern: " << regex << std::endl;
-#endif
-    NodeList nl = RegexToPostfix(regex.data());
-#ifdef DEBUG
-    for (auto n : nl)
-    {
-        std::cout << n.DebugString() << " ";
-    }
-    std::cout << std::endl;
-#endif
-
-    EnfaState * start = PostfixToEnfa(nl);
-#ifdef DEBUG
-    std::cout << EnfaState::DebugString(start) << std::endl;
-#endif
-    return start;
-}
-
-} // namespace v1
 
 namespace v2 {
 
@@ -467,35 +336,29 @@ EnfaState * PostfixToEnfa(NodeList & nl) {
     return sp.in;
 }
 
-EnfaState * RegexToEnfa(const std::string & regex) {
+EnfaState * RegexToEnfa(const CharArray & regex) {
 #ifdef DEBUG
-    std::cout << "pattern: " << regex << std::endl;
+    std::wcout << L"pattern: " << regex << std::endl;
 #endif
     NodeList nl = RegexToPostfix(regex.data());
 #ifdef DEBUG
     for (auto n : nl)
     {
-        std::cout << n.DebugString() << " ";
+        std::wcout << n.DebugString() << " ";
     }
-    std::cout << std::endl;
+    std::wcout << std::endl;
 #endif
 
     EnfaState * start = PostfixToEnfa(nl);
 #ifdef DEBUG
-    std::cout << EnfaState::DebugString(start) << std::endl;
+    std::wcout << EnfaState::DebugString(start) << std::endl;
 #endif
     return start;
 }
 
 } // namespace v2
 
-v1::ENFA FABuilder::CompileV1(std::string regex) {
-    v1::ENFA enfa;
-    enfa.start_ = v1::RegexToEnfa(regex);
-    return enfa;
-}
-
-v2::ENFA FABuilder::CompileV2(std::string regex) {
+v2::ENFA FABuilder::CompileV2(CharArray regex) {
     v2::ENFA enfa;
     enfa.start_ = v2::RegexToEnfa(regex);
     return enfa;

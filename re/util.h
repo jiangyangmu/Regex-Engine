@@ -2,11 +2,13 @@
 
 #include <cassert>
 
-inline bool IsDigit(char c) {
+template <class T>
+inline bool IsDigit(T c) {
     return c >= '0' && c <= '9';
 }
 
-int ParseInt32(const char * begin, const char * end) {
+template <class T>
+int ParseInt32(const T * begin, const T * end) {
     int i = 0;
     while (begin != end)
     {
@@ -17,9 +19,10 @@ int ParseInt32(const char * begin, const char * end) {
     return i;
 }
 
-int ParseInt32(const char ** pbegin) {
-    const char * begin = *pbegin;
-    const char * end = begin;
+template <class T>
+int ParseInt32(const T ** pbegin) {
+    const T * begin = *pbegin;
+    const T * end = begin;
     while (IsDigit(*end))
         ++end;
     int i = ParseInt32(begin, end);

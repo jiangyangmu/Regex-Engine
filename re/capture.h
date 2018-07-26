@@ -1,65 +1,8 @@
 #pragma once
 
+#include "regex.h"
+
 class Capture;
-
-namespace v1 {
-
-class CaptureTag {
-    friend class Capture;
-
-public:
-    CaptureTag()
-        : begin_(0ull)
-        , end_(0ull) {
-    }
-
-    void AddBegin(size_t group_id) {
-        assert(group_id < 64);
-        begin_ |= (1ull << group_id);
-    }
-    void AddEnd(size_t group_id) {
-        assert(group_id < 64);
-        end_ |= (1ull << group_id);
-    }
-    void Merge(const CaptureTag & tag) {
-        begin_ |= tag.begin_;
-        end_ |= tag.end_;
-    }
-
-    std::string DebugString() const {
-        std::string s;
-        size_t group_id = 0;
-        uint64_t mask = begin_;
-        s += "begin: ";
-        while (mask > 0)
-        {
-            if (mask & 0x1)
-                s += std::to_string(group_id) + " ";
-            mask >>= 1;
-            ++group_id;
-        }
-
-        group_id = 0;
-        mask = end_;
-        s += "end: ";
-        while (mask > 0)
-        {
-            if (mask & 0x1)
-                s += std::to_string(group_id) + " ";
-            mask >>= 1;
-            ++group_id;
-        }
-        if (!s.empty() && s.back() == ' ')
-            s.pop_back();
-        return s;
-    }
-
-private:
-    uint64_t begin_;
-    uint64_t end_;
-};
-
-} // namespace v1
 
 namespace v2 {
 
@@ -116,7 +59,7 @@ private:
 
 class Capture {
 public:
-    Capture(const std::string & origin)
+    Capture(const CharArray & origin)
         : origin_(origin) {
     }
 
@@ -130,27 +73,6 @@ public:
         return capture_groups_[group_id];
     }
 
-    void DoCapture(const v1::CaptureTag & tag, size_t pos) {
-        size_t group_id = 0;
-        uint64_t mask = tag.begin_;
-        while (mask > 0)
-        {
-            if (mask & 0x1)
-                capture_groups_[group_id].Begin(pos);
-            mask >>= 1;
-            ++group_id;
-        }
-
-        group_id = 0;
-        mask = tag.end_;
-        while (mask > 0)
-        {
-            if (mask & 0x1)
-                capture_groups_[group_id].End(pos);
-            mask >>= 1;
-            ++group_id;
-        }
-    }
     void DoCapture(const v2::CaptureTag & tag, size_t pos) {
         if (tag.is_begin)
             capture_groups_[tag.capture_id].Begin(pos);
@@ -158,40 +80,40 @@ public:
             capture_groups_[tag.capture_id].End(pos);
     }
 
-    const std::string & origin() const {
+    const CharArray & origin() const {
         return origin_;
     }
 
-    std::string DebugString() const {
-        std::string s;
+    CharArray DebugString() const {
+        CharArray s;
         for (const auto & kv : capture_groups_)
         {
-            s += std::to_string(kv.first) + ":";
+            s += std::to_wstring(kv.first) + L":";
             for (const auto & range : kv.second.captured())
             {
-                s += " \"";
+                s += L" \"";
                 s += origin_.substr(range.first, range.second - range.first);
-                s += "\"";
+                s += L"\"";
             }
-            s += "\n";
+            s += L"\n";
         }
         for (const auto & kv : capture_groups_)
         {
-            s += std::to_string(kv.first) + ":";
+            s += std::to_wstring(kv.first) + L":";
             for (const auto & p : kv.second.events())
             {
                 s += ' ';
                 s += (p.first ? 'B' : 'E');
                 s += ':';
-                s += std::to_string(p.second);
+                s += std::to_wstring(p.second);
             }
-            s += "\n";
+            s += L"\n";
         }
         return s;
     }
 
 private:
-    const std::string & origin_;
+    const CharArray & origin_;
     std::map<size_t, CaptureGroup> capture_groups_;
 };
 

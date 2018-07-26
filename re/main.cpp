@@ -1,13 +1,16 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 
 #include "compile.h"
+
+#include <io.h>
+#include <fcntl.h>
 
 // evil case: "(a\0)" ["a", "aa", "aaa", ...]
 void RUN_ALL_TEST();
 void RUN_HARDCORE_TEST();
 
 int main() {
-    RUN_ALL_TEST();
+    //RUN_ALL_TEST();
     // RUN_HARDCORE_TEST();
 
     // std::string regex = "(ab*|c)";
@@ -24,21 +27,25 @@ int main() {
     // std::string regex = "((?=y)yes(?<s))";
     // std::string regex = "(a{,}b{1,}c{,2}d{3,4})";
 
-    //std::string regex = "((?>a*)ab)";
+    // std::string regex = "((?>a*)ab)";
 
-    std::string regex = "((a{1,2}b){,2})";
+    // Fix console output.
+    _setmode(_fileno(stdin), _O_U16TEXT);
+    _setmode(_fileno(stdout), _O_U16TEXT);
+
+    CharArray regex = L"((啊哈{1,2}){,3})";
 
     // v1::ENFA enfa = FABuilder::CompileV1(regex);
     v2::ENFA enfa = FABuilder::CompileV2(regex);
 
-    std::cout << "pattern: " << regex << std::endl;
-    for (std::string line; std::getline(std::cin, line);)
+    std::wcout << L"pattern: " << regex << std::endl;
+    for (CharArray line; std::getline(std::wcin, line);)
     {
         MatchResult m1 = enfa.Match(line);
         if (m1.matched())
-            std::cout << m1.capture().DebugString() << std::endl;
-        std::cout << "ENFA: " << (m1.matched() ? "ok." : "reject.")
-                  << std::endl;
+            std::wcout << m1.capture().DebugString() << std::endl;
+        std::wcout << L"ENFA: " << (m1.matched() ? L"ok." : L"reject.")
+                   << std::endl;
     }
 
     return 0;

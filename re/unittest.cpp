@@ -2,14 +2,14 @@
 
 #include "compile.h"
 
-void TrueFalse(std::string regex, std::string input, bool match) {
+void TrueFalse(CharArray regex, CharArray input, bool match) {
     v2::ENFA enfa = FABuilder::CompileV2(regex);
     MatchResult m = enfa.Match(input);
     if (m.matched() != match)
     {
-        std::cout << "[ERROR] Regex '" << regex << "' should"
-                  << (match ? " MATCH" : " NOT MATCH") << " '" << input << "'"
-                  << std::endl;
+        std::wcout << L"[ERROR] Regex '" << regex << L"' should"
+                   << (match ? L" MATCH" : L" NOT MATCH") << L" '" << input
+                   << L"'" << std::endl;
     }
 }
 
@@ -17,54 +17,54 @@ void RUN_HARDCORE_TEST() {
     // backtracking
     for (int i = 10; i <= 100; i *= 10)
     {
-        std::string regex(i + 4, 'a');
+        std::wstring regex(i + 4, 'a');
         regex[0] = '(';
         regex[2] = '*';
         regex[regex.size() - 2] = 'b';
         regex[regex.size() - 1] = ')';
-        std::string input(i, 'a');
+        std::wstring input(i, 'a');
         input.push_back('b');
         TrueFalse(regex, input, true);
     }
 }
 
 void RUN_ALL_TEST() {
-    TrueFalse("(a)", "a", true);
-    TrueFalse("(a)", "b", false);
+    TrueFalse(L"(a)", L"a", true);
+    TrueFalse(L"(a)", L"b", false);
 
-    TrueFalse("(abc)", "abc", true);
-    TrueFalse("(abc)", "ac", false);
+    TrueFalse(L"(abc)", L"abc", true);
+    TrueFalse(L"(abc)", L"ac", false);
 
-    TrueFalse("(a|b)", "a", true);
-    TrueFalse("(a|b)", "b", true);
-    TrueFalse("(a|b)", "c", false);
+    TrueFalse(L"(a|b)", L"a", true);
+    TrueFalse(L"(a|b)", L"b", true);
+    TrueFalse(L"(a|b)", L"c", false);
 
-    TrueFalse("(a*)", "", true);
-    TrueFalse("(a*)", "a", true);
-    TrueFalse("(a*)", "aa", true);
+    TrueFalse(L"(a*)", L"", true);
+    TrueFalse(L"(a*)", L"a", true);
+    TrueFalse(L"(a*)", L"aa", true);
 
-    TrueFalse("((a)\\1)", "aa", true);
+    TrueFalse(L"((a)\\1)", L"aa", true);
 
-    TrueFalse("((a)(?:b)(c)\\2)", "abcc", true);
-    TrueFalse("((a)(?:b)(c)\\2)", "abca", false);
+    TrueFalse(L"((a)(?:b)(c)\\2)", L"abcc", true);
+    TrueFalse(L"((a)(?:b)(c)\\2)", L"abca", false);
 
-    TrueFalse("((?=y)yes)", "yes", true);
+    TrueFalse(L"((?=y)yes)", L"yes", true);
 
-    TrueFalse("(yes(?<s))", "yes", true);
+    TrueFalse(L"(yes(?<s))", L"yes", true);
 
-    TrueFalse("((a*)ab)", "ab", true);
-    TrueFalse("((a*)ab)", "aab", true);
-    TrueFalse("((a*)ab)", "aaab", true);
-    TrueFalse("((?>a*)ab)", "ab", false);
-    TrueFalse("((?>a*)ab)", "aab", false);
-    TrueFalse("((?>a*)ab)", "aaab", false);
+    TrueFalse(L"((a*)ab)", L"ab", true);
+    TrueFalse(L"((a*)ab)", L"aab", true);
+    TrueFalse(L"((a*)ab)", L"aaab", true);
+    TrueFalse(L"((?>a*)ab)", L"ab", false);
+    TrueFalse(L"((?>a*)ab)", L"aab", false);
+    TrueFalse(L"((?>a*)ab)", L"aaab", false);
 
-    TrueFalse("(a{1,2}b)", "b", false);
-    TrueFalse("(a{1,2}b)", "ab", true);
-    TrueFalse("(a{1,2}b)", "aab", true);
-    TrueFalse("(a{1,2}b)", "aaab", false);
-    TrueFalse("(a{3,}b)", "aab", false);
-    TrueFalse("(a{3,}b)", "aaab", true);
-    TrueFalse("(a{,4}b)", "aaaab", true);
-    TrueFalse("(a{,4}b)", "aaaaab", false);
+    TrueFalse(L"(a{1,2}b)", L"b", false);
+    TrueFalse(L"(a{1,2}b)", L"ab", true);
+    TrueFalse(L"(a{1,2}b)", L"aab", true);
+    TrueFalse(L"(a{1,2}b)", L"aaab", false);
+    TrueFalse(L"(a{3,}b)", L"aab", false);
+    TrueFalse(L"(a{3,}b)", L"aaab", true);
+    TrueFalse(L"(a{,4}b)", L"aaaab", true);
+    TrueFalse(L"(a{,4}b)", L"aaaaab", false);
 }

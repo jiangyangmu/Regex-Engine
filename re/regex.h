@@ -11,8 +11,11 @@ repeat = ('*')?
 */
 
 struct Char {
-    char c;
+    typedef wchar_t Type;
+    Type c;
 };
+
+typedef std::wstring CharArray;
 
 struct Group {
     enum Type {
@@ -40,5 +43,5 @@ struct Repeat {
     bool has_max;
 };
 
-//#define DEBUG
+#define DEBUG
 //#define DEBUG_STATS
