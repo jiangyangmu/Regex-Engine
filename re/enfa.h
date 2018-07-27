@@ -175,7 +175,8 @@ class ENFA {
     friend class FABuilder;
 
 public:
-    MatchResult Match(const CharArray & text) const;
+    MatchResult Match(StringView<wchar_t> text) const;
+    std::vector<MatchResult> MatchAll(StringView<wchar_t> text) const;
 
 private:
     EnfaState * start_;

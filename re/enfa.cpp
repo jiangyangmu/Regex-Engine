@@ -254,7 +254,7 @@ struct Thread {
 MatchResult MatchWhen(const Thread & start,
                       std::function<bool(const Thread &)> pred,
                       bool forward_match) {
-    const CharArray & text = start.capture.origin();
+    StringView<wchar_t> text = start.capture.origin();
 
 #ifdef DEBUG_STATS
     static size_t generated_threads = 0;
@@ -560,12 +560,35 @@ MatchResult MatchWhen(const Thread & start,
     return MatchResult(Capture(start.capture.origin()), false);
 }
 
-MatchResult ENFA::Match(const CharArray & text) const {
+MatchResult ENFA::Match(StringView<wchar_t> text) const {
     Thread t = {0, start_, Capture(text)};
     return MatchWhen(
         t,
         [](const Thread & current) -> bool { return current.state->IsFinal(); },
         true);
+}
+
+std::vector<MatchResult> ENFA::MatchAll(StringView<wchar_t> text) const
+{
+    std::vector<MatchResult> matches;
+
+    StringView<wchar_t> match_text = text;
+    while (!match_text.empty())
+    {
+        MatchResult m = Match(match_text);
+        if (m.matched())
+        {
+            matches.push_back(m);
+            auto range = m.capture().Group(0).Last();
+            size_t size = range.second - range.first;
+            size = (size == 0 ? 1 : size);
+            match_text.popFront(size);
+        }
+        else
+            match_text.popFront(1);
+    }
+
+    return matches;
 }
 
 } // namespace v2

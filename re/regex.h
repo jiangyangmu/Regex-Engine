@@ -1,5 +1,7 @@
 #pragma once
 
+#include "StringView.h"
+
 /*
 # regex grammar
 group = '(' ('?')? (':')? alter ')'
@@ -43,5 +45,5 @@ struct Repeat {
     bool has_max;
 };
 
-#define DEBUG
+//#define DEBUG
 //#define DEBUG_STATS

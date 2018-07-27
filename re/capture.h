@@ -59,7 +59,7 @@ private:
 
 class Capture {
 public:
-    Capture(const CharArray & origin)
+    Capture(StringView<wchar_t> origin)
         : origin_(origin) {
     }
 
@@ -68,9 +68,9 @@ public:
         ::new (&c) Capture(origin_);
         c.capture_groups_ = capture_groups_;
     }
-    const CaptureGroup & Group(size_t group_id) {
+    const CaptureGroup & Group(size_t group_id) const {
         assert(group_id < capture_groups_.size());
-        return capture_groups_[group_id];
+        return capture_groups_.at(group_id);
     }
 
     void DoCapture(const v2::CaptureTag & tag, size_t pos) {
@@ -80,7 +80,7 @@ public:
             capture_groups_[tag.capture_id].End(pos);
     }
 
-    const CharArray & origin() const {
+    StringView<wchar_t> origin() const {
         return origin_;
     }
 
@@ -113,7 +113,7 @@ public:
     }
 
 private:
-    const CharArray & origin_;
+    StringView<wchar_t> origin_;
     std::map<size_t, CaptureGroup> capture_groups_;
 };
 

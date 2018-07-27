@@ -35,6 +35,9 @@
     <ClInclude Include="util.h">
       <Filter>Source</Filter>
     </ClInclude>
+    <ClInclude Include="StringView.h">
+      <Filter>Source</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
