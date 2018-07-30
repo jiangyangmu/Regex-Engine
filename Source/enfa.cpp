@@ -2,7 +2,7 @@
 
 #include <functional>
 
-#include "compile.h"
+#include "RegexCompiler.h"
 #include "enfa.h"
 
 namespace v2 {
@@ -560,7 +560,7 @@ MatchResult MatchWhen(const Thread & start,
     return MatchResult(Capture(start.capture.origin()), false);
 }
 
-MatchResult ENFA::Match(StringView<wchar_t> text) const {
+MatchResult EnfaMatcher::Match(StringView<wchar_t> text) const {
     Thread t = {0, start_, Capture(text)};
     return MatchWhen(
         t,
@@ -568,7 +568,7 @@ MatchResult ENFA::Match(StringView<wchar_t> text) const {
         true);
 }
 
-std::vector<MatchResult> ENFA::MatchAll(StringView<wchar_t> text) const
+std::vector<MatchResult> EnfaMatcher::MatchAll(StringView<wchar_t> text) const
 {
     std::vector<MatchResult> matches;
 

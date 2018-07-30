@@ -1,6 +1,6 @@
 ﻿#include "stdafx.h"
 
-#include "compile.h"
+#include "RegexCompiler.h"
 
 #include <fcntl.h>
 #include <io.h>
@@ -37,7 +37,7 @@ int main() {
     //std::wcin >> regex;
 
     // v1::ENFA enfa = FABuilder::CompileV1(regex);
-    v2::ENFA enfa = FABuilder::CompileV2(regex);
+    v2::EnfaMatcher enfa = RegexCompiler::CompileToEnfa(regex);
 
     std::wcout << L"pattern: " << regex << std::endl;
     for (CharArray line; std::getline(std::wcin, line);)

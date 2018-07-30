@@ -6,7 +6,7 @@
 #include "lookaround.h"
 #include "regex.h"
 
-class FABuilder;
+class RegexCompiler;
 
 namespace v2 {
 
@@ -171,8 +171,8 @@ public:
     static StatePort InverseGroup(StatePort sp);
 };
 
-class ENFA {
-    friend class FABuilder;
+class EnfaMatcher {
+    friend class RegexCompiler;
 
 public:
     MatchResult Match(StringView<wchar_t> text) const;

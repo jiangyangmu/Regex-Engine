@@ -20,9 +20,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Source\capture.h" />
-    <ClInclude Include="..\..\Source\compile.h" />
+    <ClInclude Include="..\..\Source\RegexCompiler.h" />
     <ClInclude Include="..\..\Source\enfa.h" />
+    <ClInclude Include="..\..\Source\Input.h" />
+    <ClInclude Include="..\..\Source\IntType.h" />
     <ClInclude Include="..\..\Source\lookaround.h" />
+    <ClInclude Include="..\..\Source\Postfix.h" />
     <ClInclude Include="..\..\Source\regex.h" />
     <ClInclude Include="..\..\Source\stdafx.h" />
     <ClInclude Include="..\..\Source\StringView.h" />
@@ -30,12 +33,16 @@
     <ClInclude Include="..\..\Source\util.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Source\compile.cpp" />
+    <ClCompile Include="..\..\Source\RegexCompiler.cpp" />
     <ClCompile Include="..\..\Source\enfa.cpp" />
     <ClCompile Include="..\..\Source\main.cpp" />
-    <ClCompile Include="..\..\Source\re.cpp" />
+    <ClCompile Include="..\..\Source\Postfix.cpp" />
     <ClCompile Include="..\..\Source\stdafx.cpp" />
     <ClCompile Include="..\..\Source\unittest.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\Document\DESIGN.md" />
+    <None Include="..\..\Document\TODO.md" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

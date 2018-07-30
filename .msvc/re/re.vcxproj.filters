@@ -15,6 +15,15 @@
     <Filter Include="Test">
       <UniqueIdentifier>{31bf3d03-4214-4364-a732-5f031eb4fa65}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Document">
+      <UniqueIdentifier>{306f22fd-b80f-43ce-907b-f9d8d91ff0bf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Input">
+      <UniqueIdentifier>{674bca0c-aaf1-48f2-8ff0-52bd01c3e63d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Compile">
+      <UniqueIdentifier>{1ad82a7b-ddce-4319-a5d9-360725e83eb6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Source\stdafx.h">
@@ -32,9 +41,6 @@
     <ClInclude Include="..\..\Source\capture.h">
       <Filter>Source</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Source\compile.h">
-      <Filter>Source</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Source\enfa.h">
       <Filter>Source</Filter>
     </ClInclude>
@@ -44,15 +50,21 @@
     <ClInclude Include="..\..\Source\regex.h">
       <Filter>Source</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Source\Input.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\IntType.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\RegexCompiler.h">
+      <Filter>Compile</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\Postfix.h">
+      <Filter>Compile</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Source\compile.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Source\enfa.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Source\re.cpp">
       <Filter>Source</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Source\stdafx.cpp">
@@ -64,5 +76,19 @@
     <ClCompile Include="..\..\Source\main.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Source\RegexCompiler.cpp">
+      <Filter>Compile</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Postfix.cpp">
+      <Filter>Compile</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\Document\DESIGN.md">
+      <Filter>Document</Filter>
+    </None>
+    <None Include="..\..\Document\TODO.md">
+      <Filter>Document</Filter>
+    </None>
   </ItemGroup>
 </Project>
