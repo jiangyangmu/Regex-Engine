@@ -24,11 +24,11 @@
     <Filter Include="Compile">
       <UniqueIdentifier>{1ad82a7b-ddce-4319-a5d9-360725e83eb6}</UniqueIdentifier>
     </Filter>
-    <Filter Include="EFA">
-      <UniqueIdentifier>{03ed5ff7-c8db-440b-abe6-7fe687380ee0}</UniqueIdentifier>
-    </Filter>
     <Filter Include="DFA">
       <UniqueIdentifier>{2f0acd96-df47-4cea-b33b-9122ec858040}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="NFA">
+      <UniqueIdentifier>{03ed5ff7-c8db-440b-abe6-7fe687380ee0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -63,10 +63,13 @@
       <Filter>Compile</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Source\Enfa.h">
-      <Filter>EFA</Filter>
+      <Filter>NFA</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Source\EnfaTag.h">
-      <Filter>EFA</Filter>
+      <Filter>NFA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\EnfaMatcher.h">
+      <Filter>NFA</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -86,7 +89,10 @@
       <Filter>Compile</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Source\Enfa.cpp">
-      <Filter>EFA</Filter>
+      <Filter>NFA</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EnfaMatcher.cpp">
+      <Filter>NFA</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -94,6 +100,9 @@
       <Filter>Document</Filter>
     </None>
     <None Include="..\..\Document\TODO.md">
+      <Filter>Document</Filter>
+    </None>
+    <None Include="..\..\Document\input_DESIGN.md">
       <Filter>Document</Filter>
     </None>
   </ItemGroup>

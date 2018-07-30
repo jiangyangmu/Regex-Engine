@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Source\capture.h" />
+    <ClInclude Include="..\..\Source\EnfaMatcher.h" />
     <ClInclude Include="..\..\Source\EnfaTag.h" />
     <ClInclude Include="..\..\Source\RegexCompiler.h" />
     <ClInclude Include="..\..\Source\Enfa.h" />
@@ -33,6 +34,7 @@
     <ClInclude Include="..\..\Source\util.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Source\EnfaMatcher.cpp" />
     <ClCompile Include="..\..\Source\RegexCompiler.cpp" />
     <ClCompile Include="..\..\Source\Enfa.cpp" />
     <ClCompile Include="..\..\Source\main.cpp" />
@@ -42,6 +44,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\Document\DESIGN.md" />
+    <None Include="..\..\Document\input_DESIGN.md" />
     <None Include="..\..\Document\TODO.md" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

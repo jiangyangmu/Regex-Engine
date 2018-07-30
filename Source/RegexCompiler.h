@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Enfa.h"
+#include "EnfaMatcher.h"
 
 class RegexCompiler {
 public:

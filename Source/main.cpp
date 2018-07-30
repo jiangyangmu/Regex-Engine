@@ -10,7 +10,7 @@ void RUN_ALL_TEST();
 void RUN_HARDCORE_TEST();
 
 int main() {
-    // RUN_ALL_TEST();
+     RUN_ALL_TEST();
     // RUN_HARDCORE_TEST();
 
     // std::string regex = "(ab*|c)";

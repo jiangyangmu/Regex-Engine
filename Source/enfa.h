@@ -6,8 +6,6 @@
 #include "RegexSyntax.h"
 #include "capture.h"
 
-class RegexCompiler;
-
 class EnfaState {
     friend class EnfaStateBuilder;
 
@@ -111,15 +109,4 @@ public:
     static StatePort Concat(StatePort sp1, StatePort sp2);
     static StatePort Group(StatePort sp);
     static StatePort InverseGroup(StatePort sp);
-};
-
-class EnfaMatcher {
-    friend class RegexCompiler;
-
-public:
-    MatchResult Match(StringView<wchar_t> text) const;
-    std::vector<MatchResult> MatchAll(StringView<wchar_t> text) const;
-
-private:
-    EnfaState * start_;
 };
