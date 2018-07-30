@@ -5,10 +5,62 @@
 #include "EnfaMatcher.h"
 #include "RegexCompiler.h"
 
+class LexMatcher {
+public:
+    explicit LexMatcher(StringView<wchar_t> source)
+        : source_(source)
+        , pos_(0) {
+    }
+
+    bool MatchOne(wchar_t ch) {
+        return pos_ < source_.size() && next() == ch;
+    }
+    bool MatchOneBackword(wchar_t ch) {
+        return pos_ > 0 && prev() == ch;
+    }
+    bool MatchRange(StringView<wchar_t> str) {
+        if (pos_ + str.size() > source_.size())
+            return false;
+        for (auto ch : str)
+        {
+            if (next() != ch)
+                return false;
+        }
+        return true;
+    }
+    bool MatchRangeBackword(StringView<wchar_t> str) {
+        if (pos_ < str.size())
+            return false;
+        for (auto ch : str)
+        {
+            if (prev() != ch)
+                return false;
+        }
+        return true;
+    }
+
+    size_t CurrentPos() const {
+        return pos_;
+    }
+
+private:
+    wchar_t next() {
+        assert(pos_ < source_.size());
+        return source_[pos_++];
+    }
+    wchar_t prev() {
+        assert(pos_ > 0 && pos_ <= source_.size());
+        return source_[--pos_];
+    }
+
+    StringView<wchar_t> source_;
+    size_t pos_;
+};
+
 #ifdef DEBUG
 std::map<const EnfaState *, int> BuildIdMap(const EnfaState * start) {
     std::map<const EnfaState *, int> m;
-    std::vector<const EnfaState *> v = { start };
+    std::vector<const EnfaState *> v = {start};
     int id = 0;
     while (!v.empty())
     {
@@ -28,7 +80,7 @@ std::map<const EnfaState *, int> BuildIdMap(const EnfaState * start) {
 #endif
 
 struct Thread {
-    size_t pos;
+    LexMatcher input;
     const EnfaState * state;
     Capture capture;
     std::vector<std::pair<int, size_t>> id_to_repcnt;
@@ -37,8 +89,6 @@ struct Thread {
 MatchResult MatchWhen(const Thread & start,
                       std::function<bool(const Thread &)> pred,
                       bool forward_match) {
-    StringView<wchar_t> text = start.capture.origin();
-
 #ifdef DEBUG_STATS
     static size_t generated_threads = 0;
     static size_t processed_threads = 0;
@@ -51,7 +101,7 @@ MatchResult MatchWhen(const Thread & start,
         debug = BuildIdMap(start.state);
 #endif
 
-    std::vector<Thread> T = { start };
+    std::vector<Thread> T = {start};
     while (!T.empty())
     {
 #ifdef DEBUG_STATS
@@ -63,15 +113,15 @@ MatchResult MatchWhen(const Thread & start,
         std::wcout << debug_indent;
         std::wcout << text << std::endl;
         std::wcout << debug_indent << std::wstring(t.pos, ' ') << '^'
-            << std::endl;
+                   << std::endl;
 #endif
 
         (forward_match ? t.state->SetForwardMode()
-         : t.state->SetBackwordMode());
+                       : t.state->SetBackwordMode());
 
         if (t.state->Tags().HasCaptureTag())
             t.capture.DoCapture(t.state->Tags().GetCaptureTag().capture_id,
-                                t.pos,
+                                t.input.CurrentPos(),
                                 t.state->Tags().GetCaptureTag().is_begin);
 
         if (pred(t))
@@ -79,8 +129,8 @@ MatchResult MatchWhen(const Thread & start,
 #ifdef DEBUG_STATS
             generated_threads = processed_threads + T.size();
             std::wcout << "Generated Threads: " << generated_threads
-                << "\tProcessed Threads: " << processed_threads
-                << std::endl;
+                       << "\tProcessed Threads: " << processed_threads
+                       << std::endl;
             generated_threads = processed_threads = 0;
 #endif
 #ifdef DEBUG
@@ -96,17 +146,17 @@ MatchResult MatchWhen(const Thread & start,
         {
 #ifdef DEBUG
             std::wcout << L"Eval "
-                << (t.state->Tags().GetLookAroundTag().is_forward
-                    ? L"lookahead "
-                    : L"lookbehind ")
-                << t.state->Tags().GetLookAroundTag().id << L" at "
-                << t.pos << std::endl;
+                       << (t.state->Tags().GetLookAroundTag().is_forward
+                               ? L"lookahead "
+                               : L"lookbehind ")
+                       << t.state->Tags().GetLookAroundTag().id << L" at "
+                       << t.input.CurrentPos() << std::endl;
             debug_indent += L"  ";
 #endif
 
             int lookaround_id = t.state->Tags().GetLookAroundTag().id;
             bool is_forward = t.state->Tags().GetLookAroundTag().is_forward;
-            Thread start = { t.pos, t.state->Out(), t.capture };
+            Thread start = {t.input, t.state->Out(), t.capture};
 #ifdef DEBUG_STATS
             stat_save.push_back(generated_threads);
             stat_save.push_back(processed_threads);
@@ -114,20 +164,20 @@ MatchResult MatchWhen(const Thread & start,
 #endif
             if (MatchWhen(start,
                           [lookaround_id,
-                          &t](const Thread & current) mutable -> bool {
+                           &t](const Thread & current) mutable -> bool {
                               bool good =
                                   current.state->Tags().HasLookAroundTag() &&
                                   !current.state->Tags()
-                                  .GetLookAroundTag()
-                                  .is_begin &&
+                                       .GetLookAroundTag()
+                                       .is_begin &&
                                   current.state->Tags().GetLookAroundTag().id ==
-                                  lookaround_id;
+                                      lookaround_id;
                               if (good)
                                   t.state = current.state;
                               return good;
                           },
                           is_forward)
-                .matched())
+                    .matched())
             {
 #ifdef DEBUG_STATS
                 processed_threads = stat_save.back();
@@ -136,7 +186,7 @@ MatchResult MatchWhen(const Thread & start,
                 stat_save.pop_back();
 #endif
                 (forward_match ? t.state->SetForwardMode()
-                 : t.state->SetBackwordMode());
+                               : t.state->SetBackwordMode());
             }
             else
             {
@@ -154,35 +204,35 @@ MatchResult MatchWhen(const Thread & start,
         {
 #ifdef DEBUG
             std::wcout << "Eval atomic "
-                << t.state->Tags().GetAtomicTag().atomic_id << " at "
-                << t.pos << std::endl;
+                       << t.state->Tags().GetAtomicTag().atomic_id << " at "
+                       << t.pos << std::endl;
             debug_indent += L"  ";
 #endif
 
             int atomic_id = t.state->Tags().GetAtomicTag().atomic_id;
-            Thread start = { t.pos, t.state->Out(), t.capture };
+            Thread start = {t.input, t.state->Out(), t.capture};
 #ifdef DEBUG_STATS
             stat_save.push_back(generated_threads);
             stat_save.push_back(processed_threads);
             generated_threads = processed_threads = 0;
 #endif
             if (MatchWhen(
-                start,
-                [atomic_id, &t](const Thread & current) mutable -> bool {
-                    bool good = current.state->Tags().HasAtomicTag() &&
-                        !current.state->Tags().GetAtomicTag().is_begin &&
-                        current.state->Tags().GetAtomicTag().atomic_id ==
-                        atomic_id;
-                    if (good)
-                    {
-                        t.pos = current.pos;
-                        t.state = current.state;
-                        current.capture.CopyTo(t.capture);
-                    }
-                    return good;
-                },
-                true)
-                .matched())
+                    start,
+                    [atomic_id, &t](const Thread & current) mutable -> bool {
+                        bool good = current.state->Tags().HasAtomicTag() &&
+                            !current.state->Tags().GetAtomicTag().is_begin &&
+                            current.state->Tags().GetAtomicTag().atomic_id ==
+                                atomic_id;
+                        if (good)
+                        {
+                            t.input = current.input;
+                            t.state = current.state;
+                            current.capture.CopyTo(t.capture);
+                        }
+                        return good;
+                    },
+                    true)
+                    .matched())
             {
 #ifdef DEBUG_STATS
                 processed_threads = stat_save.back();
@@ -211,23 +261,25 @@ MatchResult MatchWhen(const Thread & start,
         {
             if (forward_match)
             {
-                if (t.pos < text.size() && t.state->Char() == text[t.pos])
+                if (t.input.MatchOne(
+                        t.state->Char())) //.pos < text.size() &&
+                                          // t.state->Char() == text[t.pos])
                     T.push_back(
-                        { t.pos + 1, t.state->Out(), t.capture, t.id_to_repcnt })
+                        {t.input, t.state->Out(), t.capture, t.id_to_repcnt});
 #ifdef DEBUG
-                    ,
-                    std::wcout << '+' << debug[t.state->Out()]
+                , std::wcout << '+' << debug[t.state->Out()]
 #endif
                     ;
             }
             else
             {
-                if (t.pos > 0 && t.state->Char() == text[t.pos - 1])
+                if (t.input.MatchOneBackword(
+                        t.state->Char())) // t.pos > 0 && t.state->Char() ==
+                                          // text[t.pos - 1])
                     T.push_back(
-                        { t.pos - 1, t.state->Out(), t.capture, t.id_to_repcnt })
+                        {t.input, t.state->Out(), t.capture, t.id_to_repcnt});
 #ifdef DEBUG
-                    ,
-                    std::wcout << '+' << debug[t.state->Out()]
+                , std::wcout << '+' << debug[t.state->Out()]
 #endif
                     ;
             }
@@ -239,34 +291,24 @@ MatchResult MatchWhen(const Thread & start,
             {
                 auto range = group.Last();
                 assert(range.second >= range.first);
-                size_t delta = range.second - range.first;
+                StringView<wchar_t> text(
+                    t.capture.origin().data() + range.first,
+                    range.second - range.first);
                 if (forward_match)
                 {
-                    bool match = (t.pos == range.first) ||
-                        (t.pos + delta <= text.size() &&
-                         std::equal(text.data() + range.first,
-                                    text.data() + range.second,
-                                    text.data() + t.pos,
-                                    text.data() + t.pos + delta));
-                    if (match)
-                        T.push_back({ t.pos + delta,
-                                    t.state->Out(),
-                                    t.capture,
-                                    t.id_to_repcnt });
+                    if (t.input.MatchRange(text))
+                        T.push_back({t.input,
+                                     t.state->Out(),
+                                     t.capture,
+                                     t.id_to_repcnt});
                 }
                 else
                 {
-                    bool match = (t.pos == range.second) ||
-                        (t.pos >= delta &&
-                         std::equal(text.data() + range.first,
-                                    text.data() + range.second,
-                                    text.data() + t.pos - delta,
-                                    text.data() + t.pos));
-                    if (match)
-                        T.push_back({ t.pos - delta,
-                                    t.state->Out(),
-                                    t.capture,
-                                    t.id_to_repcnt });
+                    if (t.input.MatchRangeBackword(text))
+                        T.push_back({t.input,
+                                     t.state->Out(),
+                                     t.capture,
+                                     t.id_to_repcnt});
                 }
             }
         }
@@ -288,30 +330,30 @@ MatchResult MatchWhen(const Thread & start,
                 size_t current = t.id_to_repcnt.back().second;
 #ifdef DEBUG
                 std::wcout << " repeat:" << current << "{" << repeat.min << ","
-                    << (repeat.has_max ? std::to_wstring(repeat.max)
-                        : L"")
-                    << "} ";
+                           << (repeat.has_max ? std::to_wstring(repeat.max)
+                                              : L"")
+                           << "} ";
 #endif
                 if (current < repeat.min)
-                    T.push_back({ t.pos, outs[0], t.capture, t.id_to_repcnt })
+                    T.push_back({t.input, outs[0], t.capture, t.id_to_repcnt})
 #ifdef DEBUG
-                    ,
-                    std::wcout << '+' << debug[outs[0]]
+                        ,
+                        std::wcout << '+' << debug[outs[0]]
 #endif
-                    ;
+                        ;
                 else if (!repeat.has_max || current < repeat.max)
                 {
-                    T.push_back({ t.pos, outs[1], t.capture, t.id_to_repcnt });
+                    T.push_back({t.input, outs[1], t.capture, t.id_to_repcnt});
                     T.back().id_to_repcnt.pop_back();
-                    T.push_back({ t.pos, outs[0], t.capture, t.id_to_repcnt });
+                    T.push_back({t.input, outs[0], t.capture, t.id_to_repcnt});
 #ifdef DEBUG
                     std::wcout << '+' << debug[outs[1]] << '+'
-                        << debug[outs[0]];
+                               << debug[outs[0]];
 #endif
                 }
                 else
                 {
-                    T.push_back({ t.pos, outs[1], t.capture, t.id_to_repcnt });
+                    T.push_back({t.input, outs[1], t.capture, t.id_to_repcnt});
                     T.back().id_to_repcnt.pop_back();
 #ifdef DEBUG
                     std::wcout << '+' << debug[outs[1]];
@@ -324,7 +366,7 @@ MatchResult MatchWhen(const Thread & start,
                      out != t.state->MultipleOut().rend();
                      ++out)
                 {
-                    T.push_back({ t.pos, *out, t.capture, t.id_to_repcnt })
+                    T.push_back({t.input, *out, t.capture, t.id_to_repcnt})
 #ifdef DEBUG
                         ,
                         std::wcout << '+' << debug[*out]
@@ -341,7 +383,7 @@ MatchResult MatchWhen(const Thread & start,
 #ifdef DEBUG_STATS
     generated_threads = processed_threads + T.size();
     std::wcout << "Generated Threads: " << generated_threads
-        << "\tProcessed Threads: " << processed_threads << std::endl;
+               << "\tProcessed Threads: " << processed_threads << std::endl;
     generated_threads = processed_threads = 0;
 #endif
 #ifdef DEBUG
@@ -352,7 +394,7 @@ MatchResult MatchWhen(const Thread & start,
 }
 
 MatchResult EnfaMatcher::Match(StringView<wchar_t> text) const {
-    Thread t = { 0, start_, Capture(text) };
+    Thread t = {LexMatcher(text), start_, Capture(text)};
     return MatchWhen(
         t,
         [](const Thread & current) -> bool { return current.state->IsFinal(); },

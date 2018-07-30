@@ -22,55 +22,65 @@ public:
     typedef T CharType;
     typedef typename TypeTraits<T>::StringType StringType;
     typedef typename TypeTraits<T>::OStreamType OStreamType;
+    typedef const CharType * iterator;
+    typedef const CharType * const_iterator;
 
     StringView(const StringType & str)
-        : begin(str.data())
-        , end(str.data() + str.size()) {
+        : begin_(str.data())
+        , end_(str.data() + str.size()) {
     }
     explicit StringView(const CharType * data, size_t count)
-        : begin(data)
-        , end(data + count) {
+        : begin_(data)
+        , end_(data + count) {
     }
 
     void popFront(size_t count) {
-        begin = (size() > count ? begin + count : end);
+        begin_ = (size() > count ? begin_ + count : end_);
     }
 
     void popBack(size_t count) {
-        end = (size() > count ? end - count : begin);
+        end_ = (size() > count ? end_ - count : begin_);
     }
 
     const CharType * data() const {
-        return begin;
+        return begin_;
     }
 
     bool empty() const {
-        return end == begin;
+        return end_ == begin_;
     }
 
     size_t size() const {
-        assert(end >= begin);
-        return static_cast<size_t>(end - begin);
+        assert(end_ >= begin_);
+        return static_cast<size_t>(end_ - begin_);
     }
 
     StringType substr(size_t offset, size_t count) const {
         offset = (offset > size() ? size() : offset);
         count = (count > (size() - offset) ? (size() - offset) : count);
-        return StringType(begin + offset, count);
+        return StringType(begin_ + offset, count);
     }
 
     CharType operator[](size_t index) const {
         assert(index < size());
-        return *(begin + index);
+        return *(begin_ + index);
+    }
+
+    iterator begin() const {
+        return begin_;
+    }
+
+    iterator end() const {
+        return end_;
     }
 
     friend OStreamType & operator<<(OStreamType & o, const StringView<T> & sv) {
-        for (const CharType * c = sv.begin; c != sv.end; ++c)
+        for (const CharType * c = sv.begin_; c != sv.end_; ++c)
             o << *c;
         return o;
     }
 
 private:
-    const CharType * begin;
-    const CharType * end;
+    const CharType * begin_;
+    const CharType * end_;
 };
