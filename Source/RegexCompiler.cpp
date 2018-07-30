@@ -1,11 +1,9 @@
 #include "stdafx.h"
 
-#include "RegexCompiler.h"
-#include "regex.h"
-#include "util.h"
 #include "Postfix.h"
-
-using namespace v2;
+#include "RegexCompiler.h"
+#include "RegexSyntax.h"
+#include "util.h"
 
 EnfaState * PostfixToEnfa(std::vector<PostfixNode> & nl) {
     using StatePort = EnfaStateBuilder::StatePort;
@@ -52,29 +50,29 @@ EnfaState * PostfixToEnfa(std::vector<PostfixNode> & nl) {
                     sp = EnfaStateBuilder::Group(sp);
                 if (n.group.type == Group::CAPTURE)
                 {
-                    sp.in->SetCaptureTag({n.group.capture_id, true});
-                    sp.out->SetCaptureTag({n.group.capture_id, false});
+                    sp.in->Tags().SetCaptureTag({n.group.capture_id, true});
+                    sp.out->Tags().SetCaptureTag({n.group.capture_id, false});
                 }
                 else if (n.group.type == Group::LOOK_AHEAD)
                 {
-                    sp.in->SetLookAroundTag(
+                    sp.in->Tags().SetLookAroundTag(
                         {n.group.lookaround_id, true, true});
-                    sp.out->SetLookAroundTag(
+                    sp.out->Tags().SetLookAroundTag(
                         {n.group.lookaround_id, false, true});
                 }
                 else if (n.group.type == Group::LOOK_BEHIND)
                 {
-                    sp.in->SetLookAroundTag(
+                    sp.in->Tags().SetLookAroundTag(
                         {n.group.lookaround_id, true, false});
-                    sp.out->SetLookAroundTag(
+                    sp.out->Tags().SetLookAroundTag(
                         {n.group.lookaround_id, false, false});
                 }
                 else if (n.group.type == Group::NON_CAPTURE)
                 {}
                 else if (n.group.type == Group::ATOMIC)
                 {
-                    sp.in->SetAtomicTag({n.group.atomic_id, true});
-                    sp.out->SetAtomicTag({n.group.atomic_id, false});
+                    sp.in->Tags().SetAtomicTag({n.group.atomic_id, true});
+                    sp.out->Tags().SetAtomicTag({n.group.atomic_id, false});
                 }
                 else
                     assert(false);
@@ -96,7 +94,7 @@ EnfaState * PostfixToEnfa(std::vector<PostfixNode> & nl) {
     return sp.in;
 }
 
-v2::EnfaMatcher RegexCompiler::CompileToEnfa(CharArray regex) {
+EnfaMatcher RegexCompiler::CompileToEnfa(CharArray regex) {
     EnfaState * start;
     {
 #ifdef DEBUG
@@ -117,7 +115,7 @@ v2::EnfaMatcher RegexCompiler::CompileToEnfa(CharArray regex) {
 #endif
     }
 
-    v2::EnfaMatcher enfa;
+    EnfaMatcher enfa;
     enfa.start_ = start;
     return enfa;
 }

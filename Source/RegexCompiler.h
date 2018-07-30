@@ -1,8 +1,8 @@
 #pragma once
 
-#include "enfa.h"
+#include "Enfa.h"
 
 class RegexCompiler {
 public:
-    static v2::EnfaMatcher CompileToEnfa(CharArray regex);
+    static EnfaMatcher CompileToEnfa(CharArray regex);
 };

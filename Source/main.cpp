@@ -34,10 +34,10 @@ int main() {
     _setmode(_fileno(stdout), _O_U16TEXT);
 
     CharArray regex = L"((ab{1,2}){1,3})";
-    //std::wcin >> regex;
+    // std::wcin >> regex;
 
     // v1::ENFA enfa = FABuilder::CompileV1(regex);
-    v2::EnfaMatcher enfa = RegexCompiler::CompileToEnfa(regex);
+    EnfaMatcher enfa = RegexCompiler::CompileToEnfa(regex);
 
     std::wcout << L"pattern: " << regex << std::endl;
     for (CharArray line; std::getline(std::wcin, line);)

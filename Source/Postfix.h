@@ -1,7 +1,7 @@
 #pragma once
 
 #include "stdafx.h"
-#include "regex.h"
+#include "RegexSyntax.h"
 
 /*
 * regex string to postfix

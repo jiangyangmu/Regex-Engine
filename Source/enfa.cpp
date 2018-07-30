@@ -2,10 +2,8 @@
 
 #include <functional>
 
+#include "Enfa.h"
 #include "RegexCompiler.h"
-#include "enfa.h"
-
-namespace v2 {
 
 CharArray EnfaState::DebugString(EnfaState * start) {
     std::map<const EnfaState *, int> m;
@@ -42,23 +40,23 @@ CharArray EnfaState::DebugString(EnfaState * start) {
 
         if (kv.first->IsFinal())
             o += L" FINAL";
-        if (kv.first->HasCaptureTag())
+        if (kv.first->Tags().HasCaptureTag())
             o += std::wstring(L"\t") +
-                (kv.first->GetCaptureTag().is_begin ? L"B" : L"E") +
-                std::to_wstring(kv.first->GetCaptureTag().capture_id);
-        if (kv.first->HasLookAroundTag())
+                (kv.first->Tags().GetCaptureTag().is_begin ? L"B" : L"E") +
+                std::to_wstring(kv.first->Tags().GetCaptureTag().capture_id);
+        if (kv.first->Tags().HasLookAroundTag())
             o += std::wstring(L"\t") +
-                (kv.first->GetLookAroundTag().is_begin ? L"LB" : L"LE") +
-                std::to_wstring(kv.first->GetLookAroundTag().id);
-        if (kv.first->HasAtomicTag())
+                (kv.first->Tags().GetLookAroundTag().is_begin ? L"LB" : L"LE") +
+                std::to_wstring(kv.first->Tags().GetLookAroundTag().id);
+        if (kv.first->Tags().HasAtomicTag())
             o += std::wstring(L"\t") +
-                (kv.first->GetAtomicTag().is_begin ? L"AB" : L"AE") +
-                std::to_wstring(kv.first->GetAtomicTag().atomic_id);
-        if (kv.first->HasRepeatTag())
+                (kv.first->Tags().GetAtomicTag().is_begin ? L"AB" : L"AE") +
+                std::to_wstring(kv.first->Tags().GetAtomicTag().atomic_id);
+        if (kv.first->Tags().HasRepeatTag())
             o += std::wstring(L"\t") + L"{" +
-                std::to_wstring(kv.first->GetRepeatTag().min) + L"," +
-                (kv.first->GetRepeatTag().has_max
-                     ? std::to_wstring(kv.first->GetRepeatTag().max)
+                std::to_wstring(kv.first->Tags().GetRepeatTag().min) + L"," +
+                (kv.first->Tags().GetRepeatTag().has_max
+                     ? std::to_wstring(kv.first->Tags().GetRepeatTag().max)
                      : L"") +
                 L"}";
     }
@@ -155,7 +153,7 @@ EnfaStateBuilder::StatePort EnfaStateBuilder::Repeat(StatePort sp,
     sp.out->forward.out_.push_back(sp.in);
     sp.out->forward.out_.push_back(out);
 
-    sp.out->SetRepeatTag({rep.repeat_id, rep.min, rep.max, rep.has_max});
+    sp.out->Tags().SetRepeatTag({rep.repeat_id, rep.min, rep.max, rep.has_max});
 
     return {in, out};
 }
@@ -286,8 +284,10 @@ MatchResult MatchWhen(const Thread & start,
         (forward_match ? t.state->SetForwardMode()
                        : t.state->SetBackwordMode());
 
-        if (t.state->HasCaptureTag())
-            t.capture.DoCapture(t.state->GetCaptureTag(), t.pos);
+        if (t.state->Tags().HasCaptureTag())
+            t.capture.DoCapture(t.state->Tags().GetCaptureTag().capture_id,
+                                t.pos,
+                                t.state->Tags().GetCaptureTag().is_begin);
 
         if (pred(t))
         {
@@ -306,20 +306,20 @@ MatchResult MatchWhen(const Thread & start,
         }
 
         // look around assertion
-        if (t.state->HasLookAroundTag() && t.state->GetLookAroundTag().is_begin)
+        if (t.state->Tags().HasLookAroundTag() && t.state->Tags().GetLookAroundTag().is_begin)
         {
 #ifdef DEBUG
             std::wcout << L"Eval "
-                       << (t.state->GetLookAroundTag().is_forward
+                       << (t.state->Tags().GetLookAroundTag().is_forward
                                ? L"lookahead "
                                : L"lookbehind ")
-                       << t.state->GetLookAroundTag().id << L" at " << t.pos
+                       << t.state->Tags().GetLookAroundTag().id << L" at " << t.pos
                        << std::endl;
             debug_indent += L"  ";
 #endif
 
-            int lookaround_id = t.state->GetLookAroundTag().id;
-            bool is_forward = t.state->GetLookAroundTag().is_forward;
+            int lookaround_id = t.state->Tags().GetLookAroundTag().id;
+            bool is_forward = t.state->Tags().GetLookAroundTag().is_forward;
             Thread start = {t.pos, t.state->Out(), t.capture};
 #ifdef DEBUG_STATS
             stat_save.push_back(generated_threads);
@@ -329,9 +329,9 @@ MatchResult MatchWhen(const Thread & start,
             if (MatchWhen(start,
                           [lookaround_id,
                            &t](const Thread & current) mutable -> bool {
-                              bool good = current.state->HasLookAroundTag() &&
-                                  !current.state->GetLookAroundTag().is_begin &&
-                                  current.state->GetLookAroundTag().id ==
+                              bool good = current.state->Tags().HasLookAroundTag() &&
+                                  !current.state->Tags().GetLookAroundTag().is_begin &&
+                                  current.state->Tags().GetLookAroundTag().id ==
                                       lookaround_id;
                               if (good)
                                   t.state = current.state;
@@ -360,15 +360,15 @@ MatchResult MatchWhen(const Thread & start,
                 continue;
             }
         }
-        else if (t.state->HasAtomicTag() && t.state->GetAtomicTag().is_begin)
+        else if (t.state->Tags().HasAtomicTag() && t.state->Tags().GetAtomicTag().is_begin)
         {
 #ifdef DEBUG
-            std::wcout << "Eval atomic " << t.state->GetAtomicTag().atomic_id
+            std::wcout << "Eval atomic " << t.state->Tags().GetAtomicTag().atomic_id
                        << " at " << t.pos << std::endl;
             debug_indent += L"  ";
 #endif
 
-            int atomic_id = t.state->GetAtomicTag().atomic_id;
+            int atomic_id = t.state->Tags().GetAtomicTag().atomic_id;
             Thread start = {t.pos, t.state->Out(), t.capture};
 #ifdef DEBUG_STATS
             stat_save.push_back(generated_threads);
@@ -378,9 +378,9 @@ MatchResult MatchWhen(const Thread & start,
             if (MatchWhen(
                     start,
                     [atomic_id, &t](const Thread & current) mutable -> bool {
-                        bool good = current.state->HasAtomicTag() &&
-                            !current.state->GetAtomicTag().is_begin &&
-                            current.state->GetAtomicTag().atomic_id ==
+                        bool good = current.state->Tags().HasAtomicTag() &&
+                            !current.state->Tags().GetAtomicTag().is_begin &&
+                            current.state->Tags().GetAtomicTag().atomic_id ==
                                 atomic_id;
                         if (good)
                         {
@@ -481,9 +481,9 @@ MatchResult MatchWhen(const Thread & start,
         }
         else if (t.state->IsEpsilon())
         {
-            if (t.state->HasRepeatTag())
+            if (t.state->Tags().HasRepeatTag())
             {
-                auto repeat = t.state->GetRepeatTag();
+                auto repeat = t.state->Tags().GetRepeatTag();
                 if (t.id_to_repcnt.empty() ||
                     t.id_to_repcnt.back().first != repeat.repeat_id)
                 {
@@ -568,8 +568,7 @@ MatchResult EnfaMatcher::Match(StringView<wchar_t> text) const {
         true);
 }
 
-std::vector<MatchResult> EnfaMatcher::MatchAll(StringView<wchar_t> text) const
-{
+std::vector<MatchResult> EnfaMatcher::MatchAll(StringView<wchar_t> text) const {
     std::vector<MatchResult> matches;
 
     StringView<wchar_t> match_text = text;
@@ -590,5 +589,3 @@ std::vector<MatchResult> EnfaMatcher::MatchAll(StringView<wchar_t> text) const
 
     return matches;
 }
-
-} // namespace v2

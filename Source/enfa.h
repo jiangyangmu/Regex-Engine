@@ -2,25 +2,11 @@
 
 #include "stdafx.h"
 
+#include "EnfaTag.h"
+#include "RegexSyntax.h"
 #include "capture.h"
-#include "lookaround.h"
-#include "regex.h"
 
 class RegexCompiler;
-
-namespace v2 {
-
-struct AtomicTag {
-    int atomic_id;
-    bool is_begin;
-};
-
-struct RepeatTag {
-    int repeat_id;
-    size_t min;
-    size_t max;
-    bool has_max;
-};
 
 class EnfaState {
     friend class EnfaStateBuilder;
@@ -50,7 +36,8 @@ public:
 
     // char, back reference
     const EnfaState * Out() const {
-        assert((IsChar() || IsBackReference() || IsEpsilon()) && direction_->out_.size() == 1);
+        assert((IsChar() || IsBackReference() || IsEpsilon()) &&
+               direction_->out_.size() == 1);
         return direction_->out_.front();
     }
     // epsilon
@@ -61,57 +48,21 @@ public:
     const std::vector<EnfaState *> & DebugMultipleOut() const {
         return direction_->out_;
     }
-
-    bool HasCaptureTag() const {
-        return has_capture_;
-    }
-    const CaptureTag & GetCaptureTag() const {
-        return capture_;
-    }
-    bool HasLookAroundTag() const {
-        return has_lookaround_;
-    }
-    const LookAroundTag & GetLookAroundTag() const {
-        return lookaround_;
-    }
-    bool HasAtomicTag() const {
-        return has_atomic_;
-    }
-    const AtomicTag & GetAtomicTag() const {
-        return atomic_;
-    }
-    bool HasRepeatTag() const {
-        return has_repeat_;
-    }
-    const RepeatTag & GetRepeatTag() const {
-        return repeat_;
-    }
-
     void SetFinal() {
         is_final_ = true;
     }
-    void SetCaptureTag(CaptureTag tag) {
-        has_capture_ = true;
-        capture_ = tag;
-    }
-    void SetLookAroundTag(LookAroundTag tag) {
-        has_lookaround_ = true;
-        lookaround_ = tag;
-    }
-    void SetAtomicTag(AtomicTag tag) {
-        has_atomic_ = true;
-        atomic_ = tag;
-    }
-    void SetRepeatTag(RepeatTag tag) {
-        has_repeat_ =  true;
-        repeat_ = tag;
-    }
-
     void SetForwardMode() const {
         direction_ = &forward;
     }
     void SetBackwordMode() const {
         direction_ = &backword;
+    }
+
+    const TagSet & Tags() const {
+        return tag_set_;
+    }
+    TagSet & Tags() {
+        return tag_set_;
     }
 
     static CharArray DebugString(EnfaState * start);
@@ -125,8 +76,6 @@ private:
         };
         direction_ = &forward;
         is_final_ = false;
-        has_capture_ = false;
-        has_lookaround_ = false;
     }
 
     enum Type {
@@ -146,14 +95,7 @@ private:
 
     bool is_final_;
 
-    bool has_capture_;
-    CaptureTag capture_;
-    bool has_lookaround_;
-    LookAroundTag lookaround_;
-    bool has_atomic_;
-    AtomicTag atomic_;
-    bool has_repeat_;
-    RepeatTag repeat_;
+    TagSet tag_set_;
 };
 
 class EnfaStateBuilder {
@@ -181,5 +123,3 @@ public:
 private:
     EnfaState * start_;
 };
-
-} // namespace v2

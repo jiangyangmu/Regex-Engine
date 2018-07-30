@@ -1,17 +1,8 @@
 #pragma once
 
-#include "regex.h"
+#include "RegexSyntax.h"
 
 class Capture;
-
-namespace v2 {
-
-struct CaptureTag {
-    size_t capture_id;
-    bool is_begin;
-};
-
-} // namespace v2
 
 class CaptureGroup {
 public:
@@ -73,11 +64,11 @@ public:
         return capture_groups_.at(group_id);
     }
 
-    void DoCapture(const v2::CaptureTag & tag, size_t pos) {
-        if (tag.is_begin)
-            capture_groups_[tag.capture_id].Begin(pos);
+    void DoCapture(size_t group_id, size_t pos, bool is_begin) {
+        if (is_begin)
+            capture_groups_[group_id].Begin(pos);
         else
-            capture_groups_[tag.capture_id].End(pos);
+            capture_groups_[group_id].End(pos);
     }
 
     StringView<wchar_t> origin() const {

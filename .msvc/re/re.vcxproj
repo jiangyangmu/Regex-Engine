@@ -20,13 +20,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Source\capture.h" />
+    <ClInclude Include="..\..\Source\EnfaTag.h" />
     <ClInclude Include="..\..\Source\RegexCompiler.h" />
-    <ClInclude Include="..\..\Source\enfa.h" />
+    <ClInclude Include="..\..\Source\Enfa.h" />
     <ClInclude Include="..\..\Source\Input.h" />
     <ClInclude Include="..\..\Source\IntType.h" />
-    <ClInclude Include="..\..\Source\lookaround.h" />
     <ClInclude Include="..\..\Source\Postfix.h" />
-    <ClInclude Include="..\..\Source\regex.h" />
+    <ClInclude Include="..\..\Source\RegexSyntax.h" />
     <ClInclude Include="..\..\Source\stdafx.h" />
     <ClInclude Include="..\..\Source\StringView.h" />
     <ClInclude Include="..\..\Source\targetver.h" />
@@ -34,7 +34,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Source\RegexCompiler.cpp" />
-    <ClCompile Include="..\..\Source\enfa.cpp" />
+    <ClCompile Include="..\..\Source\Enfa.cpp" />
     <ClCompile Include="..\..\Source\main.cpp" />
     <ClCompile Include="..\..\Source\Postfix.cpp" />
     <ClCompile Include="..\..\Source\stdafx.cpp" />

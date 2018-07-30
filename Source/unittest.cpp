@@ -3,7 +3,7 @@
 #include "RegexCompiler.h"
 
 void TrueFalse(CharArray regex, CharArray input, bool match) {
-    v2::EnfaMatcher enfa = RegexCompiler::CompileToEnfa(regex);
+    EnfaMatcher enfa = RegexCompiler::CompileToEnfa(regex);
     MatchResult m = enfa.Match(input);
     if (m.matched() != match)
     {

@@ -24,6 +24,12 @@
     <Filter Include="Compile">
       <UniqueIdentifier>{1ad82a7b-ddce-4319-a5d9-360725e83eb6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="EFA">
+      <UniqueIdentifier>{03ed5ff7-c8db-440b-abe6-7fe687380ee0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DFA">
+      <UniqueIdentifier>{2f0acd96-df47-4cea-b33b-9122ec858040}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Source\stdafx.h">
@@ -41,15 +47,6 @@
     <ClInclude Include="..\..\Source\capture.h">
       <Filter>Source</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Source\enfa.h">
-      <Filter>Source</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Source\lookaround.h">
-      <Filter>Source</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Source\regex.h">
-      <Filter>Source</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Source\Input.h">
       <Filter>Input</Filter>
     </ClInclude>
@@ -62,11 +59,17 @@
     <ClInclude Include="..\..\Source\Postfix.h">
       <Filter>Compile</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Source\RegexSyntax.h">
+      <Filter>Compile</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\Enfa.h">
+      <Filter>EFA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\EnfaTag.h">
+      <Filter>EFA</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Source\enfa.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Source\stdafx.cpp">
       <Filter>Misc</Filter>
     </ClCompile>
@@ -81,6 +84,9 @@
     </ClCompile>
     <ClCompile Include="..\..\Source\Postfix.cpp">
       <Filter>Compile</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Enfa.cpp">
+      <Filter>EFA</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
