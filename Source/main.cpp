@@ -34,6 +34,7 @@ int main() {
     _setmode(_fileno(stdout), _O_U16TEXT);
 
     CharArray regex = L"((ab{1,2}){1,3})";
+    //std::wcin >> regex;
 
     // v1::ENFA enfa = FABuilder::CompileV1(regex);
     v2::ENFA enfa = FABuilder::CompileV2(regex);

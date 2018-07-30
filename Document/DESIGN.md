@@ -37,6 +37,7 @@ Design
     * backtracking
   * repeat: ab*
     * backtracking
+    * repeat range: a{1,2}b
   * group: a(bc)
     * capture capability
       * nesting capture: a(b(c))
@@ -53,7 +54,6 @@ Design
   * simulate DFA
 
 * Advanced features
-  * [repeat] repeat range.
   * [group] matching configuration.
   * [repeat] greedy, reluctant, possessive.
   * [alter] empty match (e.g. "(a|)")

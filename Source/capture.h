@@ -97,6 +97,7 @@ public:
             }
             s += L"\n";
         }
+#ifdef DEBUG
         for (const auto & kv : capture_groups_)
         {
             s += std::to_wstring(kv.first) + L":";
@@ -109,6 +110,7 @@ public:
             }
             s += L"\n";
         }
+#endif
         return s;
     }
 

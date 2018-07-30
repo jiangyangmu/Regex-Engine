@@ -9,59 +9,60 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="Util">
+      <UniqueIdentifier>{52a31381-8efa-42ad-8bd5-5ef87f80345e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Test">
+      <UniqueIdentifier>{31bf3d03-4214-4364-a732-5f031eb4fa65}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="stdafx.h">
+    <ClInclude Include="..\..\Source\stdafx.h">
       <Filter>Misc</Filter>
     </ClInclude>
-    <ClInclude Include="targetver.h">
+    <ClInclude Include="..\..\Source\targetver.h">
       <Filter>Misc</Filter>
     </ClInclude>
-    <ClInclude Include="enfa.h">
+    <ClInclude Include="..\..\Source\util.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\StringView.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\capture.h">
       <Filter>Source</Filter>
     </ClInclude>
-    <ClInclude Include="capture.h">
+    <ClInclude Include="..\..\Source\compile.h">
       <Filter>Source</Filter>
     </ClInclude>
-    <ClInclude Include="compile.h">
+    <ClInclude Include="..\..\Source\enfa.h">
       <Filter>Source</Filter>
     </ClInclude>
-    <ClInclude Include="lookaround.h">
+    <ClInclude Include="..\..\Source\lookaround.h">
       <Filter>Source</Filter>
     </ClInclude>
-    <ClInclude Include="regex.h">
-      <Filter>Source</Filter>
-    </ClInclude>
-    <ClInclude Include="util.h">
-      <Filter>Source</Filter>
-    </ClInclude>
-    <ClInclude Include="StringView.h">
+    <ClInclude Include="..\..\Source\regex.h">
       <Filter>Source</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="stdafx.cpp">
+    <ClCompile Include="..\..\Source\compile.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\enfa.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\re.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\stdafx.cpp">
       <Filter>Misc</Filter>
     </ClCompile>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="..\..\Source\unittest.cpp">
+      <Filter>Test</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\main.cpp">
       <Filter>Source</Filter>
     </ClCompile>
-    <ClCompile Include="enfa.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="compile.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="unittest.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="DESIGN.md">
-      <Filter>Source</Filter>
-    </None>
-    <None Include="TODO.md">
-      <Filter>Source</Filter>
-    </None>
   </ItemGroup>
 </Project>
