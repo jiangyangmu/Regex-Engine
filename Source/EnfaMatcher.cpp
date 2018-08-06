@@ -12,6 +12,10 @@ public:
         , pos_(0) {
     }
 
+    StringView<wchar_t> Origin() const {
+        return source_;
+    }
+
     bool MatchOne(wchar_t ch) {
         return pos_ < source_.size() && next() == ch;
     }
@@ -110,19 +114,19 @@ MatchResult MatchWhen(const Thread & start,
         Thread t = T.back();
         T.pop_back();
 #ifdef DEBUG
+        std::wcout << L"--------------------------------------" << std::endl;
         std::wcout << debug_indent;
-        std::wcout << text << std::endl;
-        std::wcout << debug_indent << std::wstring(t.pos, ' ') << '^'
-                   << std::endl;
+        std::wcout << t.input.Origin() << std::endl;
+        std::wcout << debug_indent << std::wstring(t.input.CurrentPos(), ' ')
+                   << '^' << std::endl;
 #endif
 
-        (forward_match ? t.state->SetForwardMode()
-                       : t.state->SetBackwordMode());
-
         if (t.state->Tags().HasCaptureTag())
+        {
             t.capture.DoCapture(t.state->Tags().GetCaptureTag().capture_id,
                                 t.input.CurrentPos(),
                                 t.state->Tags().GetCaptureTag().is_begin);
+        }
 
         if (pred(t))
         {
@@ -185,8 +189,6 @@ MatchResult MatchWhen(const Thread & start,
                 generated_threads = stat_save.back();
                 stat_save.pop_back();
 #endif
-                (forward_match ? t.state->SetForwardMode()
-                               : t.state->SetBackwordMode());
             }
             else
             {
@@ -205,7 +207,7 @@ MatchResult MatchWhen(const Thread & start,
 #ifdef DEBUG
             std::wcout << "Eval atomic "
                        << t.state->Tags().GetAtomicTag().atomic_id << " at "
-                       << t.pos << std::endl;
+                       << t.input.CurrentPos() << std::endl;
             debug_indent += L"  ";
 #endif
 
@@ -262,26 +264,18 @@ MatchResult MatchWhen(const Thread & start,
             if (forward_match)
             {
                 if (t.input.MatchOne(
-                        t.state->Char())) //.pos < text.size() &&
-                                          // t.state->Char() == text[t.pos])
+                        t.state->Char())) {
                     T.push_back(
                         {t.input, t.state->Out(), t.capture, t.id_to_repcnt});
-#ifdef DEBUG
-                , std::wcout << '+' << debug[t.state->Out()]
-#endif
-                    ;
+                }
             }
             else
             {
                 if (t.input.MatchOneBackword(
-                        t.state->Char())) // t.pos > 0 && t.state->Char() ==
-                                          // text[t.pos - 1])
+                        t.state->Char())) {
                     T.push_back(
                         {t.input, t.state->Out(), t.capture, t.id_to_repcnt});
-#ifdef DEBUG
-                , std::wcout << '+' << debug[t.state->Out()]
-#endif
-                    ;
+                }
             }
         }
         else if (t.state->IsBackReference())
@@ -330,34 +324,24 @@ MatchResult MatchWhen(const Thread & start,
                 size_t current = t.id_to_repcnt.back().second;
 #ifdef DEBUG
                 std::wcout << " repeat:" << current << "{" << repeat.min << ","
-                           << (repeat.has_max ? std::to_wstring(repeat.max)
-                                              : L"")
-                           << "} ";
+                    << (repeat.has_max ? std::to_wstring(repeat.max)
+                        : L"")
+                    << "} ";
 #endif
                 if (current < repeat.min)
-                    T.push_back({t.input, outs[0], t.capture, t.id_to_repcnt})
-#ifdef DEBUG
-                        ,
-                        std::wcout << '+' << debug[outs[0]]
-#endif
-                        ;
+                {
+                    T.push_back({ t.input, outs[0], t.capture, t.id_to_repcnt });
+                }
                 else if (!repeat.has_max || current < repeat.max)
                 {
                     T.push_back({t.input, outs[1], t.capture, t.id_to_repcnt});
                     T.back().id_to_repcnt.pop_back();
                     T.push_back({t.input, outs[0], t.capture, t.id_to_repcnt});
-#ifdef DEBUG
-                    std::wcout << '+' << debug[outs[1]] << '+'
-                               << debug[outs[0]];
-#endif
                 }
                 else
                 {
                     T.push_back({t.input, outs[1], t.capture, t.id_to_repcnt});
                     T.back().id_to_repcnt.pop_back();
-#ifdef DEBUG
-                    std::wcout << '+' << debug[outs[1]];
-#endif
                 }
             }
             else
@@ -366,17 +350,15 @@ MatchResult MatchWhen(const Thread & start,
                      out != t.state->MultipleOut().rend();
                      ++out)
                 {
-                    T.push_back({t.input, *out, t.capture, t.id_to_repcnt})
-#ifdef DEBUG
-                        ,
-                        std::wcout << '+' << debug[*out]
-#endif
-                        ;
+                    T.push_back({t.input, *out, t.capture, t.id_to_repcnt});
                 }
             }
         }
 #ifdef DEBUG
-        std::wcout << std::endl;
+        std::wcout << L"[ ";
+        for (auto ti = T.rbegin(); ti != T.rend(); ++ti)
+            std::wcout << debug[ti->state] << L',';
+        std::wcout << L" ]" << std::endl;
 #endif
     }
 

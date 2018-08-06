@@ -51,6 +51,10 @@ void RUN_ALL_TEST() {
     TrueFalse(L"((?=y)yes)", L"yes", true);
 
     TrueFalse(L"(yes(?<s))", L"yes", true);
+    TrueFalse(L"(yes(?<yes)(?<es)(?<s))", L"yes", true);
+    TrueFalse(L"(yes(?<yes(?<es(?<s))))", L"yes", true);
+
+    TrueFalse(L"(yes(?<y(?=es)e(?=s)s))", L"yes", true);
 
     TrueFalse(L"((a*)ab)", L"ab", true);
     TrueFalse(L"((a*)ab)", L"aab", true);

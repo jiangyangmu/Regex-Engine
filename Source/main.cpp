@@ -1,5 +1,6 @@
 ﻿#include "stdafx.h"
 
+#include "Postfix.h"
 #include "RegexCompiler.h"
 
 #include <fcntl.h>
@@ -10,7 +11,7 @@ void RUN_ALL_TEST();
 void RUN_HARDCORE_TEST();
 
 int main() {
-     RUN_ALL_TEST();
+    RUN_ALL_TEST();
     // RUN_HARDCORE_TEST();
 
     // std::string regex = "(ab*|c)";
@@ -33,22 +34,20 @@ int main() {
     _setmode(_fileno(stdin), _O_U16TEXT);
     _setmode(_fileno(stdout), _O_U16TEXT);
 
-    CharArray regex = L"((ab{1,2}){1,3})";
+    CharArray regex = L"(yes(?<(?=yes)y(?<y)(?=es)e(?=s)s(?<s)))";
+    // CharArray regex = L"((ab{1,2}){1,3})";
     // std::wcin >> regex;
 
-    // v1::ENFA enfa = FABuilder::CompileV1(regex);
     EnfaMatcher enfa = RegexCompiler::CompileToEnfa(regex);
 
-    std::wcout << L"pattern: " << regex << std::endl;
-    for (CharArray line; std::getline(std::wcin, line);)
+    for (CharArray line; std::wcout << L"pattern: " << regex << std::endl,
+                         std::getline(std::wcin, line);)
     {
-        // MatchResult m1 = enfa.Match(line);
-        // if (m1.matched())
-        //    std::wcout << m1.capture().DebugString() << std::endl;
-        // std::wcout << L"ENFA: " << (m1.matched() ? L"ok." : L"reject.")
-        //           << std::endl;
         int i = 0;
-        for (MatchResult & m : enfa.MatchAll(line))
+        auto matches = enfa.MatchAll(line);
+        if (matches.empty())
+            std::wcout << "No matches." << std::endl;
+        for (MatchResult & m : matches)
         {
             std::wcout << "Match Result " << i++ << std::endl;
             if (m.matched())

@@ -10,9 +10,10 @@ EnfaState * PostfixToEnfa(std::vector<PostfixNode> & nl) {
 
     std::vector<StatePort> st;
 
-#define push(x) st.emplace_back(x)
-#define pop() st.back(), st.pop_back()
+#define PUSH(x) st.emplace_back(x)
+#define POP() st.back(), st.pop_back()
 
+    std::deque<StatePort> lookbehinds;
     for (PostfixNode & n : nl)
     {
         StatePort sp, sp1, sp2;
@@ -23,31 +24,28 @@ EnfaState * PostfixToEnfa(std::vector<PostfixNode> & nl) {
                 assert(false);
                 break;
             case PostfixNode::CHAR_INPUT:
-                push(EnfaStateBuilder::Char(n.chr.c));
+                PUSH(EnfaStateBuilder::Char(n.chr.c));
                 break;
             case PostfixNode::BACKREF_INPUT:
-                push(EnfaStateBuilder::BackReference(n.backref.capture_id));
+                PUSH(EnfaStateBuilder::BackReference(n.backref.capture_id));
                 break;
             case PostfixNode::REPEAT:
-                sp = pop();
-                push(EnfaStateBuilder::Repeat(sp, n.repeat));
+                sp = POP();
+                PUSH(EnfaStateBuilder::Repeat(sp, n.repeat));
                 break;
             case PostfixNode::CONCAT:
-                sp2 = pop();
-                sp1 = pop();
-                push(EnfaStateBuilder::Concat(sp1, sp2));
+                sp2 = POP();
+                sp1 = POP();
+                PUSH(EnfaStateBuilder::Concat(sp1, sp2));
                 break;
             case PostfixNode::ALTER:
-                sp2 = pop();
-                sp1 = pop();
-                push(EnfaStateBuilder::Alter(sp1, sp2));
+                sp2 = POP();
+                sp1 = POP();
+                PUSH(EnfaStateBuilder::Alter(sp1, sp2));
                 break;
             case PostfixNode::GROUP:
-                sp = pop();
-                if (n.group.type == Group::LOOK_BEHIND)
-                    sp = EnfaStateBuilder::InverseGroup(sp);
-                else
-                    sp = EnfaStateBuilder::Group(sp);
+                sp = POP();
+                sp = EnfaStateBuilder::Group(sp);
                 if (n.group.type == Group::CAPTURE)
                 {
                     sp.in->Tags().SetCaptureTag({n.group.capture_id, true});
@@ -76,7 +74,7 @@ EnfaState * PostfixToEnfa(std::vector<PostfixNode> & nl) {
                 }
                 else
                     assert(false);
-                push(sp);
+                PUSH(sp);
                 break;
             default:
                 break;
@@ -84,12 +82,12 @@ EnfaState * PostfixToEnfa(std::vector<PostfixNode> & nl) {
     }
 
     StatePort sp;
-    sp = pop();
+    sp = POP();
     assert(st.empty());
     sp.out->SetFinal();
 
-#undef pop
-#undef push
+#undef POP
+#undef PUSH
 
     return sp.in;
 }
@@ -103,9 +101,13 @@ EnfaMatcher RegexCompiler::CompileToEnfa(CharArray regex) {
         std::vector<PostfixNode> nl = ParseToPostfix(regex.data());
 #ifdef DEBUG
         for (auto n : nl)
-        {
             std::wcout << n.DebugString() << " ";
-        }
+        std::wcout << std::endl;
+#endif
+        nl = FlipPostfix(nl);
+#ifdef DEBUG
+        for (auto n : nl)
+            std::wcout << n.DebugString() << " ";
         std::wcout << std::endl;
 #endif
 

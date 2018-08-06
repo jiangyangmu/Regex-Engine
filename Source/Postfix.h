@@ -52,4 +52,5 @@ struct PostfixNode {
     };
 };
 
-std::vector<PostfixNode> ParseToPostfix(CharArray regex);
+std::vector<PostfixNode> ParseToPostfix(CharArray regex); 
+std::vector<PostfixNode> FlipPostfix(const std::vector<PostfixNode> & nl);

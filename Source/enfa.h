@@ -11,13 +11,13 @@ class EnfaState {
 
 public:
     bool IsChar() const {
-        return direction_->type_ == CHAR_OUT;
+        return edge.type_ == CHAR_OUT;
     }
     bool IsBackReference() const {
-        return direction_->type_ == BACKREF_OUT;
+        return edge.type_ == BACKREF_OUT;
     }
     bool IsEpsilon() const {
-        return direction_->type_ == EPSILON_OUT;
+        return edge.type_ == EPSILON_OUT;
     }
     bool IsFinal() const {
         return is_final_;
@@ -25,35 +25,29 @@ public:
 
     ::Char::Type Char() const {
         assert(IsChar());
-        return direction_->char_.c;
+        return edge.char_.c;
     }
     size_t BackReference() const {
         assert(IsBackReference());
-        return direction_->backref_;
+        return edge.backref_;
     }
 
     // char, back reference
     const EnfaState * Out() const {
         assert((IsChar() || IsBackReference() || IsEpsilon()) &&
-               direction_->out_.size() == 1);
-        return direction_->out_.front();
+               edge.out_.size() == 1);
+        return edge.out_.front();
     }
     // epsilon
     const std::vector<EnfaState *> & MultipleOut() const {
-        assert(IsEpsilon() && !direction_->out_.empty());
-        return direction_->out_;
+        assert(IsEpsilon() && !edge.out_.empty());
+        return edge.out_;
     }
     const std::vector<EnfaState *> & DebugMultipleOut() const {
-        return direction_->out_;
+        return edge.out_;
     }
     void SetFinal() {
         is_final_ = true;
-    }
-    void SetForwardMode() const {
-        direction_ = &forward;
-    }
-    void SetBackwordMode() const {
-        direction_ = &backword;
     }
 
     const TagSet & Tags() const {
@@ -67,12 +61,11 @@ public:
 
 private:
     EnfaState() {
-        forward = backword = {
+        edge = {
             INVALID,
             0,
             0,
         };
-        direction_ = &forward;
         is_final_ = false;
     }
 
@@ -83,13 +76,12 @@ private:
         EPSILON_OUT,
     };
 
-    struct Direction {
+    struct Edge {
         Type type_;
         ::Char char_;
         size_t backref_;
         std::vector<EnfaState *> out_;
-    } forward, backword;
-    mutable const Direction * direction_;
+    } edge;
 
     bool is_final_;
 
@@ -108,5 +100,4 @@ public:
     static StatePort Repeat(StatePort sp, struct Repeat rep);
     static StatePort Concat(StatePort sp1, StatePort sp2);
     static StatePort Group(StatePort sp);
-    static StatePort InverseGroup(StatePort sp);
 };
