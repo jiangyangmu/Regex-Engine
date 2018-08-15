@@ -20,7 +20,7 @@ struct PostfixNode {
         GROUP,
     };
 
-    explicit PostfixNode(Char c)
+    explicit PostfixNode(RChar c)
         : type(CHAR_INPUT)
         , chr(c) {
     }
@@ -41,16 +41,16 @@ struct PostfixNode {
         assert(type == CONCAT || type == ALTER || type == NULL_INPUT);
     }
 
-    CharArray DebugString() const;
+    RString DebugString() const;
 
     Type type;
     union {
-        Char chr;
+        RChar chr;
         Group group;
         BackReference backref;
         Repeat repeat;
     };
 };
 
-std::vector<PostfixNode> ParseToPostfix(CharArray regex); 
+std::vector<PostfixNode> ParseToPostfix(RString regex);
 std::vector<PostfixNode> FlipPostfix(const std::vector<PostfixNode> & nl);

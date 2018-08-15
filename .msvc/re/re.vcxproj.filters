@@ -30,6 +30,9 @@
     <Filter Include="NFA">
       <UniqueIdentifier>{03ed5ff7-c8db-440b-abe6-7fe687380ee0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Matcher">
+      <UniqueIdentifier>{2c74b6ae-298d-45e4-843a-86dae1c76144}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Source\stdafx.h">
@@ -71,6 +74,9 @@
     <ClInclude Include="..\..\Source\EnfaMatcher.h">
       <Filter>NFA</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Source\CharMatcher.h">
+      <Filter>Matcher</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Source\stdafx.cpp">
@@ -93,6 +99,9 @@
     </ClCompile>
     <ClCompile Include="..\..\Source\EnfaMatcher.cpp">
       <Filter>NFA</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\CharMatcher.cpp">
+      <Filter>Matcher</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -24,7 +24,7 @@ EnfaState * PostfixToEnfa(std::vector<PostfixNode> & nl) {
                 assert(false);
                 break;
             case PostfixNode::CHAR_INPUT:
-                PUSH(EnfaStateBuilder::Char(n.chr.c));
+                PUSH(EnfaStateBuilder::Char(n.chr));
                 break;
             case PostfixNode::BACKREF_INPUT:
                 PUSH(EnfaStateBuilder::BackReference(n.backref.capture_id));
@@ -92,7 +92,7 @@ EnfaState * PostfixToEnfa(std::vector<PostfixNode> & nl) {
     return sp.in;
 }
 
-EnfaMatcher RegexCompiler::CompileToEnfa(CharArray regex) {
+EnfaMatcher RegexCompiler::CompileToEnfa(RString regex) {
     EnfaState * start;
     {
 #ifdef DEBUG

@@ -2,6 +2,8 @@
 
 #include "StringView.h"
 
+#include <string>
+
 /*
 # regex grammar
 group = '(' ('?')? (':')? alter ')'
@@ -12,12 +14,16 @@ char = ASCII | '\' [0-9]
 repeat = ('*')?
 */
 
-struct Char {
-    typedef wchar_t Type;
-    Type c;
+template <typename CharT>
+struct RegexType {
+    typedef CharT Char;
+    typedef std::basic_string<CharT> String;
+    typedef StringView<CharT> StringView;
 };
 
-typedef std::wstring CharArray;
+typedef RegexType<wchar_t>::Char RChar;
+typedef RegexType<wchar_t>::String RString;
+typedef RegexType<wchar_t>::StringView RView;
 
 struct Group {
     enum Type {
@@ -45,5 +51,5 @@ struct Repeat {
     bool has_max;
 };
 
-//#define DEBUG
+#define DEBUG
 //#define DEBUG_STATS

@@ -14,7 +14,7 @@ std::wstring ToHexString(T i) {
     return stream.str();
 }
 
-CharArray EnfaState::DebugString(EnfaState * start) {
+RString EnfaState::DebugString(EnfaState * start) {
     std::map<const EnfaState *, int> m;
     std::vector<EnfaState *> v = {start};
     int id = 0;
@@ -30,10 +30,10 @@ CharArray EnfaState::DebugString(EnfaState * start) {
         }
     }
 
-    std::map<int, CharArray> out;
+    std::map<int, RString> out;
     for (auto kv : m)
     {
-        CharArray & o = out[kv.second];
+        RString & o = out[kv.second];
         if (kv.first->IsChar())
             o += L"'", o += kv.first->Char(),
                 o += L"' [" + std::to_wstring(m[kv.first->Out()]) + L"]";
@@ -74,14 +74,14 @@ CharArray EnfaState::DebugString(EnfaState * start) {
     for (auto kv : m)
         mm[kv.second] = kv.first;
 
-    CharArray s;
+    RString s;
     for (auto kv : mm)
         s += ToHexString(kv.second) + L"\t[" + std::to_wstring(kv.first) +
             L"] " + out[kv.first] + L"\n";
     return s;
 }
 
-EnfaStateBuilder::StatePort EnfaStateBuilder::Char(::Char::Type c) {
+EnfaStateBuilder::StatePort EnfaStateBuilder::Char(RChar c) {
     EnfaState * in = new EnfaState();
     EnfaState * out = new EnfaState();
     in->edge = {

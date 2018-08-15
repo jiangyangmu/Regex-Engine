@@ -2,6 +2,7 @@
 
 #include <ostream>
 #include <string>
+#include <cassert>
 
 template <typename T>
 struct TypeTraits;
@@ -28,6 +29,12 @@ public:
     StringView(const StringType & str)
         : begin_(str.data())
         , end_(str.data() + str.size()) {
+    }
+    StringView(const CharType * data)
+        : begin_(data)
+        , end_(data) {
+        while (*end_)
+            ++end_;
     }
     explicit StringView(const CharType * data, size_t count)
         : begin_(data)

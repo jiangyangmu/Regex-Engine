@@ -23,9 +23,9 @@ public:
         return is_final_;
     }
 
-    ::Char::Type Char() const {
+    RChar Char() const {
         assert(IsChar());
-        return edge.char_.c;
+        return edge.char_;
     }
     size_t BackReference() const {
         assert(IsBackReference());
@@ -57,7 +57,7 @@ public:
         return tag_set_;
     }
 
-    static CharArray DebugString(EnfaState * start);
+    static RString DebugString(EnfaState * start);
 
 private:
     EnfaState() {
@@ -78,7 +78,7 @@ private:
 
     struct Edge {
         Type type_;
-        ::Char char_;
+        RChar char_;
         size_t backref_;
         std::vector<EnfaState *> out_;
     } edge;
@@ -94,7 +94,7 @@ public:
         EnfaState * in;
         EnfaState * out;
     };
-    static StatePort Char(::Char::Type c);
+    static StatePort Char(RChar c);
     static StatePort BackReference(size_t ref_capture_id);
     static StatePort Alter(StatePort sp1, StatePort sp2);
     static StatePort Repeat(StatePort sp, struct Repeat rep);

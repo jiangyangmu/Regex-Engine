@@ -4,5 +4,5 @@
 
 class RegexCompiler {
 public:
-    static EnfaMatcher CompileToEnfa(CharArray regex);
+    static EnfaMatcher CompileToEnfa(RString regex);
 };

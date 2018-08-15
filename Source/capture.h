@@ -75,8 +75,8 @@ public:
         return origin_;
     }
 
-    CharArray DebugString() const {
-        CharArray s;
+    RString DebugString() const {
+        RString s;
         for (const auto & kv : capture_groups_)
         {
             s += std::to_wstring(kv.first) + L":";

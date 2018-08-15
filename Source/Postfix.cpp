@@ -3,8 +3,10 @@
 #include "stdafx.h"
 #include "util.h"
 
-CharArray PostfixNode::DebugString() const {
-    CharArray s;
+#include "CharMatcher.h"
+
+RString PostfixNode::DebugString() const {
+    RString s;
     switch (type)
     {
         case NULL_INPUT:
@@ -12,7 +14,7 @@ CharArray PostfixNode::DebugString() const {
             break;
         case CHAR_INPUT:
             s += L"INPUT(";
-            s += chr.c;
+            s += chr;
             s += L")";
             break;
         case BACKREF_INPUT:
@@ -56,7 +58,7 @@ CharArray PostfixNode::DebugString() const {
 
 class PostfixParser {
 public:
-    explicit PostfixParser(const Char::Type * regex)
+    explicit PostfixParser(RView regex)
         : capture_id_gen_(0)
         , lookaround_id_gen_(0)
         , atomic_id_gen_(0)
@@ -71,60 +73,58 @@ public:
 private:
     // TODO: check regex_ boundary.
     void repeat() {
-        if (*regex_ == '*')
+        if (regex_.Match('*'))
         {
-            ++regex_;
             Repeat r = {repeat_id_gen_++, 0, 0, false};
             nl_.emplace_back(r);
         }
-        else if (*regex_ == '{')
+        else if (regex_.Match('{'))
         {
-            ++regex_;
             Repeat r = {repeat_id_gen_++, 0, 0, false};
 
-            assert(*regex_ == ',' || IsDigit(*regex_));
-            if (IsDigit(*regex_))
-                r.min = ParseInt32(&regex_);
-            assert(*regex_ == ',');
-            ++regex_;
-            if (IsDigit(*regex_))
+            regex_.MatchUInt32(&r.min);
+            assert(regex_.Match(','));
+
+            if (regex_.MatchUInt32(&r.max))
             {
-                r.max = ParseInt32(&regex_);
                 r.has_max = true;
                 assert(r.max >= r.min);
             }
 
-            assert(*regex_ == '}');
-            ++regex_;
+            assert(regex_.Match('}'));
 
             nl_.emplace_back(r);
         }
     }
     bool item() {
-        if (*regex_ == '\\')
+        if (regex_.Match('\\'))
         {
-            ++regex_;
-            assert(*regex_ >= '0' && *regex_ <= '9');
-            BackReference b = {*regex_++ - '0'};
+            size_t backref_id = 10;
+            assert(regex_.MatchUInt32(&backref_id));
+            assert(backref_id <= 9);
+            BackReference b = { (int)backref_id };
             nl_.emplace_back(b);
             repeat();
             return true;
         }
-        else if (*regex_ == '(')
+        else if (regex_.TryMatch('('))
         {
             group();
             repeat();
             return true;
         }
-        else if (*regex_ != ')' && *regex_ != '|')
+        else
         {
             // TODO: check not special char
-            Char c = {*regex_++};
-            nl_.emplace_back(c);
-            repeat();
-            return true;
+            if (!regex_.TryMatchAny(L"|)"))
+            {
+                nl_.emplace_back(regex_.GetChar());
+                repeat();
+                return true;
+            }
+            else
+                return false;
         }
-        return false;
     }
     void concat() {
         assert(item());
@@ -132,17 +132,16 @@ private:
             nl_.emplace_back(PostfixNode::CONCAT);
     }
     void alter() {
-        if (*regex_ == '|' || *regex_ == ')')
+        if (regex_.TryMatchAny(L"|)"))
         {
             nl_.emplace_back(PostfixNode::NULL_INPUT);
             return;
         }
 
         concat();
-        while (*regex_ == '|')
+        while (regex_.Match('|'))
         {
-            ++regex_;
-            if (*regex_ == '|' || *regex_ == ')')
+            if (regex_.TryMatchAny(L"|)"))
             {
                 nl_.emplace_back(PostfixNode::NULL_INPUT);
                 continue;
@@ -152,22 +151,19 @@ private:
         }
     }
     void group() {
-        assert(*regex_ == '(');
-        ++regex_;
+        assert(regex_.Match('('));
 
         Group g;
 
         g.type = Group::CAPTURE;
-        if (*regex_ == '?' && *(regex_ + 1) == ':')
-            g.type = Group::NON_CAPTURE, regex_ += 2;
-        else if (*regex_ == '?' && *(regex_ + 1) == '=')
-            g.type = Group::LOOK_AHEAD, g.lookaround_id = lookaround_id_gen_++,
-            regex_ += 2;
-        else if (*regex_ == '?' && *(regex_ + 1) == '<')
-            g.type = Group::LOOK_BEHIND, g.lookaround_id = lookaround_id_gen_++,
-            regex_ += 2;
-        else if (*regex_ == '?' && *(regex_ + 1) == '>')
-            g.type = Group::ATOMIC, g.atomic_id = atomic_id_gen_++, regex_ += 2;
+        if (regex_.MatchTwo('?',':'))
+            g.type = Group::NON_CAPTURE;
+        else if (regex_.MatchTwo('?', '='))
+            g.type = Group::LOOK_AHEAD, g.lookaround_id = lookaround_id_gen_++;
+        else if (regex_.MatchTwo('?', '<'))
+            g.type = Group::LOOK_BEHIND, g.lookaround_id = lookaround_id_gen_++;
+        else if (regex_.MatchTwo('?', '>'))
+            g.type = Group::ATOMIC, g.atomic_id = atomic_id_gen_++;
         else
             g.capture_id = capture_id_gen_++;
 
@@ -175,19 +171,18 @@ private:
 
         nl_.emplace_back(g);
 
-        assert(*regex_ == ')');
-        ++regex_;
+        assert(regex_.Match(')'));
     }
 
     int capture_id_gen_;
     int lookaround_id_gen_;
     int atomic_id_gen_;
     int repeat_id_gen_;
-    const Char::Type * regex_;
+    LexMatcher regex_;
     std::vector<PostfixNode> nl_;
 };
 
-std::vector<PostfixNode> ParseToPostfix(CharArray regex) {
+std::vector<PostfixNode> ParseToPostfix(RString regex) {
     return PostfixParser(regex.data()).Parse();
 }
 
@@ -195,8 +190,8 @@ struct PostfixTreeNode {
     const PostfixNode * node;
     PostfixTreeNode *left, *right;
 
-    CharArray DebugString() const {
-        CharArray str = L"(" + node->DebugString();
+    RString DebugString() const {
+        RString str = L"(" + node->DebugString();
         if (left)
             str += L" " + left->DebugString();
         if (right)
@@ -204,11 +199,11 @@ struct PostfixTreeNode {
         str += L")";
         return str;
     }
-    CharArray PrettyDebugString() const {
-        CharArray str = DebugString();
+    RString PrettyDebugString() const {
+        RString str = DebugString();
 
-        CharArray pretty_str;
-        CharArray indent;
+        RString pretty_str;
+        RString indent;
         for (wchar_t c : str)
         {
             if (c == L'(')

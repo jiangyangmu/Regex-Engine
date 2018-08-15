@@ -2,64 +2,9 @@
 
 #include <functional>
 
+#include "CharMatcher.h"
 #include "EnfaMatcher.h"
 #include "RegexCompiler.h"
-
-class LexMatcher {
-public:
-    explicit LexMatcher(StringView<wchar_t> source)
-        : source_(source)
-        , pos_(0) {
-    }
-
-    StringView<wchar_t> Origin() const {
-        return source_;
-    }
-
-    bool MatchOne(wchar_t ch) {
-        return pos_ < source_.size() && next() == ch;
-    }
-    bool MatchOneBackword(wchar_t ch) {
-        return pos_ > 0 && prev() == ch;
-    }
-    bool MatchRange(StringView<wchar_t> str) {
-        if (pos_ + str.size() > source_.size())
-            return false;
-        for (auto ch : str)
-        {
-            if (next() != ch)
-                return false;
-        }
-        return true;
-    }
-    bool MatchRangeBackword(StringView<wchar_t> str) {
-        if (pos_ < str.size())
-            return false;
-        for (auto ch : str)
-        {
-            if (prev() != ch)
-                return false;
-        }
-        return true;
-    }
-
-    size_t CurrentPos() const {
-        return pos_;
-    }
-
-private:
-    wchar_t next() {
-        assert(pos_ < source_.size());
-        return source_[pos_++];
-    }
-    wchar_t prev() {
-        assert(pos_ > 0 && pos_ <= source_.size());
-        return source_[--pos_];
-    }
-
-    StringView<wchar_t> source_;
-    size_t pos_;
-};
 
 #ifdef DEBUG
 std::map<const EnfaState *, int> BuildIdMap(const EnfaState * start) {
@@ -263,16 +208,16 @@ MatchResult MatchWhen(const Thread & start,
         {
             if (forward_match)
             {
-                if (t.input.MatchOne(
-                        t.state->Char())) {
+                if (t.input.Match(t.state->Char()))
+                {
                     T.push_back(
                         {t.input, t.state->Out(), t.capture, t.id_to_repcnt});
                 }
             }
             else
             {
-                if (t.input.MatchOneBackword(
-                        t.state->Char())) {
+                if (t.input.MatchBackword(t.state->Char()))
+                {
                     T.push_back(
                         {t.input, t.state->Out(), t.capture, t.id_to_repcnt});
                 }
@@ -324,13 +269,13 @@ MatchResult MatchWhen(const Thread & start,
                 size_t current = t.id_to_repcnt.back().second;
 #ifdef DEBUG
                 std::wcout << " repeat:" << current << "{" << repeat.min << ","
-                    << (repeat.has_max ? std::to_wstring(repeat.max)
-                        : L"")
-                    << "} ";
+                           << (repeat.has_max ? std::to_wstring(repeat.max)
+                                              : L"")
+                           << "} ";
 #endif
                 if (current < repeat.min)
                 {
-                    T.push_back({ t.input, outs[0], t.capture, t.id_to_repcnt });
+                    T.push_back({t.input, outs[0], t.capture, t.id_to_repcnt});
                 }
                 else if (!repeat.has_max || current < repeat.max)
                 {

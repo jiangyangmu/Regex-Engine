@@ -34,14 +34,14 @@ int main() {
     _setmode(_fileno(stdin), _O_U16TEXT);
     _setmode(_fileno(stdout), _O_U16TEXT);
 
-    CharArray regex = L"(yes(?<(?=yes)y(?<y)(?=es)e(?=s)s(?<s)))";
-    // CharArray regex = L"((ab{1,2}){1,3})";
+    RString regex = L"(yes(?<(?=yes)y(?<y)(?=es)e(?=s)s(?<s)))";
+    // RString regex = L"((ab{1,2}){1,3})";
     // std::wcin >> regex;
 
     EnfaMatcher enfa = RegexCompiler::CompileToEnfa(regex);
 
-    for (CharArray line; std::wcout << L"pattern: " << regex << std::endl,
-                         std::getline(std::wcin, line);)
+    for (RString line; std::wcout << L"pattern: " << regex << std::endl,
+                       std::getline(std::wcin, line);)
     {
         int i = 0;
         auto matches = enfa.MatchAll(line);
