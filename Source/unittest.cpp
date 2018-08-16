@@ -5,7 +5,7 @@
 void TrueFalse(RString regex, RString input, bool match) {
     EnfaMatcher enfa = RegexCompiler::CompileToEnfa(regex);
     MatchResult m = enfa.Match(input);
-    if (m.matched() != match)
+    if (m.Matched() != match)
     {
         std::wcout << L"[ERROR] Regex '" << regex << L"' should"
                    << (match ? L" MATCH" : L" NOT MATCH") << L" '" << input

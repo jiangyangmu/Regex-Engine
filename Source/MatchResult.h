@@ -2,37 +2,36 @@
 
 #include "RegexSyntax.h"
 
-class Capture;
-
 class CaptureGroup {
 public:
-    CaptureGroup()
-        : need_begin_(true) {
+    explicit CaptureGroup(RView origin)
+        : origin_(origin)
+        , need_begin_(true) {
     }
 
-    std::pair<size_t, size_t> Last() const {
-        assert(IsComplete());
+    // access functions
+    RView GetLast() const {
+        auto range = GetLastRange();
+        return origin_.subview(range.first, range.second - range.first);
+    }
+    std::pair<size_t, size_t> GetLastRange() const {
+        assert(IsReady() && !captured_.empty());
         return captured_.back();
     }
-    bool IsComplete() const {
-        return need_begin_ && !captured_.empty();
-    }
 
-    void Begin(size_t pos) {
-        if (need_begin_)
+    // build functions
+    void Add(size_t pos, bool is_begin) {
+        if (is_begin && need_begin_)
         {
             captured_.push_back({pos, 0});
             need_begin_ = false;
         }
-        events_.emplace_back(true, pos);
-    }
-    void End(size_t pos) {
-        if (!need_begin_)
+        else if (!is_begin && !need_begin_)
         {
             captured_.back().second = pos;
             need_begin_ = true;
         }
-        events_.emplace_back(false, pos);
+        events_.emplace_back(is_begin, pos);
     }
 
     const std::vector<std::pair<size_t, size_t>> & captured() const {
@@ -43,6 +42,11 @@ public:
     }
 
 private:
+    bool IsReady() const {
+        return need_begin_;
+    }
+
+    RView origin_;
     bool need_begin_;
     std::vector<std::pair<size_t, size_t>> captured_;
     std::vector<std::pair<bool, size_t>> events_;
@@ -50,29 +54,27 @@ private:
 
 class Capture {
 public:
-    Capture(StringView<wchar_t> origin)
+    explicit Capture(RView origin)
         : origin_(origin) {
     }
 
-    void CopyTo(Capture & c) const {
-        c.~Capture();
-        ::new (&c) Capture(origin_);
-        c.capture_groups_ = capture_groups_;
+    RView Origin() const {
+        return origin_;
     }
     const CaptureGroup & Group(size_t group_id) const {
         assert(group_id < capture_groups_.size());
         return capture_groups_.at(group_id);
     }
-
-    void DoCapture(size_t group_id, size_t pos, bool is_begin) {
-        if (is_begin)
-            capture_groups_[group_id].Begin(pos);
-        else
-            capture_groups_[group_id].End(pos);
+    void CopyTo(Capture & c) const {
+        c.~Capture();
+        ::new (&c) Capture(origin_);
+        c.capture_groups_ = capture_groups_;
     }
 
-    StringView<wchar_t> origin() const {
-        return origin_;
+    void DoCapture(size_t group_id, size_t pos, bool is_begin) {
+        if (capture_groups_.find(group_id) == capture_groups_.end())
+            capture_groups_.emplace(group_id, CaptureGroup(origin_));
+        capture_groups_.at(group_id).Add(pos, is_begin);
     }
 
     RString DebugString() const {
@@ -106,24 +108,25 @@ public:
     }
 
 private:
-    StringView<wchar_t> origin_;
+    RView origin_;
     std::map<size_t, CaptureGroup> capture_groups_;
 };
 
 class MatchResult {
 public:
-    MatchResult(const Capture & capture, bool matched)
+    MatchResult(const ::Capture & capture, bool matched)
         : capture_(capture)
         , matched_(matched) {
     }
-    bool matched() const {
+
+    bool Matched() const {
         return matched_;
     }
-    const Capture & capture() const {
+    const ::Capture & GetCapture() const {
         return capture_;
     }
 
 private:
     bool matched_;
-    Capture capture_;
+    ::Capture capture_;
 };

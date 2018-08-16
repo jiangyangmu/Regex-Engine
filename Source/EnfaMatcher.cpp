@@ -126,7 +126,7 @@ MatchResult MatchWhen(const Thread & start,
                               return good;
                           },
                           is_forward)
-                    .matched())
+                    .Matched())
             {
 #ifdef DEBUG_STATS
                 processed_threads = stat_save.back();
@@ -179,7 +179,7 @@ MatchResult MatchWhen(const Thread & start,
                         return good;
                     },
                     true)
-                    .matched())
+                    .Matched())
             {
 #ifdef DEBUG_STATS
                 processed_threads = stat_save.back();
@@ -206,49 +206,24 @@ MatchResult MatchWhen(const Thread & start,
 
         if (t.state->IsChar())
         {
-            if (forward_match)
+            bool matched = forward_match
+                ? t.input.Match(t.state->Char())
+                : t.input.MatchBackword(t.state->Char());
+            if (matched)
             {
-                if (t.input.Match(t.state->Char()))
-                {
-                    T.push_back(
-                        {t.input, t.state->Out(), t.capture, t.id_to_repcnt});
-                }
-            }
-            else
-            {
-                if (t.input.MatchBackword(t.state->Char()))
-                {
-                    T.push_back(
-                        {t.input, t.state->Out(), t.capture, t.id_to_repcnt});
-                }
+                T.push_back(
+                    {t.input, t.state->Out(), t.capture, t.id_to_repcnt});
             }
         }
         else if (t.state->IsBackReference())
         {
-            auto group = t.capture.Group(t.state->BackReference());
-            if (group.IsComplete())
+            RView text = t.capture.Group(t.state->BackReference()).GetLast();
+            bool matched = forward_match ? t.input.MatchRange(text)
+                                         : t.input.MatchRangeBackword(text);
+            if (matched)
             {
-                auto range = group.Last();
-                assert(range.second >= range.first);
-                StringView<wchar_t> text(
-                    t.capture.origin().data() + range.first,
-                    range.second - range.first);
-                if (forward_match)
-                {
-                    if (t.input.MatchRange(text))
-                        T.push_back({t.input,
-                                     t.state->Out(),
-                                     t.capture,
-                                     t.id_to_repcnt});
-                }
-                else
-                {
-                    if (t.input.MatchRangeBackword(text))
-                        T.push_back({t.input,
-                                     t.state->Out(),
-                                     t.capture,
-                                     t.id_to_repcnt});
-                }
+                T.push_back(
+                    {t.input, t.state->Out(), t.capture, t.id_to_repcnt});
             }
         }
         else if (t.state->IsEpsilon())
@@ -317,10 +292,10 @@ MatchResult MatchWhen(const Thread & start,
     if (debug_indent.size() >= 2)
         debug_indent.pop_back(), debug_indent.pop_back();
 #endif
-    return MatchResult(Capture(start.capture.origin()), false);
+    return MatchResult(Capture(start.capture.Origin()), false);
 }
 
-MatchResult EnfaMatcher::Match(StringView<wchar_t> text) const {
+MatchResult EnfaMatcher::Match(RView text) const {
     Thread t = {LexMatcher(text), start_, Capture(text)};
     return MatchWhen(
         t,
@@ -328,23 +303,21 @@ MatchResult EnfaMatcher::Match(StringView<wchar_t> text) const {
         true);
 }
 
-std::vector<MatchResult> EnfaMatcher::MatchAll(StringView<wchar_t> text) const {
+std::vector<MatchResult> EnfaMatcher::MatchAll(RView text) const {
     std::vector<MatchResult> matches;
 
-    StringView<wchar_t> match_text = text;
+    RView match_text = text;
     while (!match_text.empty())
     {
         MatchResult m = Match(match_text);
-        if (m.matched())
+        size_t scanned = 1;
+        if (m.Matched())
         {
             matches.push_back(m);
-            auto range = m.capture().Group(0).Last();
-            size_t size = range.second - range.first;
-            size = (size == 0 ? 1 : size);
-            match_text.popFront(size);
+            auto range = m.GetCapture().Group(0).GetLastRange();
+            scanned = std::max(scanned, range.second - range.first);
         }
-        else
-            match_text.popFront(1);
+        match_text.PopFront(scanned);
     }
 
     return matches;

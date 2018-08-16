@@ -19,13 +19,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Source\capture.h" />
+    <ClInclude Include="..\..\Source\MatchResult.h" />
     <ClInclude Include="..\..\Source\CharMatcher.h" />
     <ClInclude Include="..\..\Source\EnfaMatcher.h" />
     <ClInclude Include="..\..\Source\EnfaTag.h" />
     <ClInclude Include="..\..\Source\RegexCompiler.h" />
     <ClInclude Include="..\..\Source\Enfa.h" />
-    <ClInclude Include="..\..\Source\Input.h" />
     <ClInclude Include="..\..\Source\IntType.h" />
     <ClInclude Include="..\..\Source\Postfix.h" />
     <ClInclude Include="..\..\Source\RegexSyntax.h" />

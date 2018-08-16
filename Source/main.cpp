@@ -50,8 +50,8 @@ int main() {
         for (MatchResult & m : matches)
         {
             std::wcout << "Match Result " << i++ << std::endl;
-            if (m.matched())
-                std::wcout << m.capture().DebugString() << std::endl;
+            if (m.Matched())
+                std::wcout << m.GetCapture().DebugString() << std::endl;
         }
     }
 

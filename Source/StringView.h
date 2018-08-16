@@ -41,11 +41,11 @@ public:
         , end_(data + count) {
     }
 
-    void popFront(size_t count) {
+    void PopFront(size_t count) {
         begin_ = (size() > count ? begin_ + count : end_);
     }
 
-    void popBack(size_t count) {
+    void PopBack(size_t count) {
         end_ = (size() > count ? end_ - count : begin_);
     }
 
@@ -60,6 +60,12 @@ public:
     size_t size() const {
         assert(end_ >= begin_);
         return static_cast<size_t>(end_ - begin_);
+    }
+
+    StringView<T> subview(size_t offset, size_t count) const {
+        offset = (offset > size() ? size() : offset);
+        count = (count > (size() - offset) ? (size() - offset) : count);
+        return StringView<T>(begin_ + offset, count);
     }
 
     StringType substr(size_t offset, size_t count) const {

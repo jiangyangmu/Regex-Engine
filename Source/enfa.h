@@ -4,7 +4,7 @@
 
 #include "EnfaTag.h"
 #include "RegexSyntax.h"
-#include "capture.h"
+#include "MatchResult.h"
 
 class EnfaState {
     friend class EnfaStateBuilder;
