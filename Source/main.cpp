@@ -6,14 +6,7 @@
 #include <fcntl.h>
 #include <io.h>
 
-// evil case: "(a\0)" ["a", "aa", "aaa", ...]
-void RUN_ALL_TEST();
-void RUN_HARDCORE_TEST();
-
-int main() {
-    RUN_ALL_TEST();
-    // RUN_HARDCORE_TEST();
-
+int main(int argc, char * argv[]) {
     // std::string regex = "(ab*|c)";
     // std::string regex = "((a)*)";
     // std::string regex = "((a*)*)";
@@ -31,13 +24,13 @@ int main() {
     // std::string regex = "((?>a*)ab)";
 
     // Fix console output.
-    _setmode(_fileno(stdin), _O_U16TEXT);
+    //_setmode(_fileno(stdin), _O_U16TEXT);
     _setmode(_fileno(stdout), _O_U16TEXT);
 
-    RString regex = L"(yes(?<(?=yes)y(?<y)(?=es)e(?=s)s(?<s)))";
-    // RString regex = L"((ab{1,2}){1,3})";
-    // std::wcin >> regex;
-
+    //RString regex = L"(yes(?<(?=yes)y(?<y)(?=es)e(?=s)s(?<s)))";
+     //RString regex = L"((ab{1,2}){1,3})";
+    RString regex = L"(a{1,2}b)";
+     
     EnfaMatcher enfa = RegexCompiler::CompileToEnfa(regex);
 
     for (RString line; std::wcout << L"pattern: " << regex << std::endl,

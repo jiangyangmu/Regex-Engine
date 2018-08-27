@@ -146,15 +146,31 @@ EnfaStateBuilder::StatePort EnfaStateBuilder::Repeat(StatePort sp,
         0,
     };
 
-    in->edge.out_.push_back(sp.in);
-    if (rep.min == 0)
-        in->edge.out_.push_back(out);
+    if (rep.qualifier == Repeat::GREEDY)
+    {
+        in->edge.out_.push_back(sp.in);
+        if (rep.min == 0)
+            in->edge.out_.push_back(out);
+    }
+    else
+    {
+        assert(rep.qualifier == Repeat::RELUCTANT);
+        if (rep.min == 0)
+            in->edge.out_.push_back(out);
+        in->edge.out_.push_back(sp.in);
+    }
 
     // Match algorithm depends on push order here.
     sp.out->edge.out_.push_back(sp.in);
     sp.out->edge.out_.push_back(out);
 
-    sp.out->Tags().SetRepeatTag({rep.repeat_id, rep.min, rep.max, rep.has_max});
+    sp.out->Tags().SetRepeatTag(
+        {rep.repeat_id,
+         rep.min,
+         rep.max,
+         rep.has_max,
+         (rep.qualifier == Repeat::GREEDY ? RepeatTag::GREEDY
+                                          : RepeatTag::RELUCTANT)});
 
     return {in, out};
 }

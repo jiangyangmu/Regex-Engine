@@ -12,9 +12,6 @@
     <Filter Include="Util">
       <UniqueIdentifier>{52a31381-8efa-42ad-8bd5-5ef87f80345e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Test">
-      <UniqueIdentifier>{31bf3d03-4214-4364-a732-5f031eb4fa65}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Document">
       <UniqueIdentifier>{306f22fd-b80f-43ce-907b-f9d8d91ff0bf}</UniqueIdentifier>
     </Filter>
@@ -62,22 +59,19 @@
     <ClInclude Include="..\..\Source\EnfaTag.h">
       <Filter>NFA</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Source\EnfaMatcher.h">
-      <Filter>NFA</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Source\CharMatcher.h">
       <Filter>Matcher</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Source\EnfaMatcher.h">
+      <Filter>Matcher</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Source\MatchResult.h">
-      <Filter>Source</Filter>
+      <Filter>Matcher</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Source\stdafx.cpp">
       <Filter>Misc</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Source\unittest.cpp">
-      <Filter>Test</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Source\main.cpp">
       <Filter>Source</Filter>
@@ -91,10 +85,10 @@
     <ClCompile Include="..\..\Source\Enfa.cpp">
       <Filter>NFA</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Source\EnfaMatcher.cpp">
-      <Filter>NFA</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Source\CharMatcher.cpp">
+      <Filter>Matcher</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EnfaMatcher.cpp">
       <Filter>Matcher</Filter>
     </ClCompile>
   </ItemGroup>

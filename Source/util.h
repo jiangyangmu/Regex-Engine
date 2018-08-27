@@ -29,3 +29,9 @@ int ParseInt32(const T ** pbegin) {
     *pbegin = end;
     return i;
 }
+
+#ifdef NDEBUG
+#define RAssert(e) do { if (!(e)) std::exit(1); } while (0)
+#else
+#define RAssert(e) assert(e)
+#endif

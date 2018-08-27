@@ -10,6 +10,10 @@ struct RepeatTag {
     size_t min;
     size_t max;
     bool has_max;
+    enum Qualifier {
+        GREEDY,
+        RELUCTANT
+    } qualifier;
 };
 
 struct CaptureTag {

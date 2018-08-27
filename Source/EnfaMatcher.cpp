@@ -5,6 +5,7 @@
 #include "CharMatcher.h"
 #include "EnfaMatcher.h"
 #include "RegexCompiler.h"
+#include "util.h"
 
 #ifdef DEBUG
 std::map<const EnfaState *, int> BuildIdMap(const EnfaState * start) {
@@ -38,11 +39,6 @@ struct Thread {
 MatchResult MatchWhen(const Thread & start,
                       std::function<bool(const Thread &)> pred,
                       bool forward_match) {
-#ifdef DEBUG_STATS
-    static size_t generated_threads = 0;
-    static size_t processed_threads = 0;
-    static std::vector<size_t> stat_save;
-#endif
 #ifdef DEBUG
     static std::map<const EnfaState *, int> debug;
     static std::wstring debug_indent;
@@ -53,9 +49,6 @@ MatchResult MatchWhen(const Thread & start,
     std::vector<Thread> T = {start};
     while (!T.empty())
     {
-#ifdef DEBUG_STATS
-        ++processed_threads;
-#endif
         Thread t = T.back();
         T.pop_back();
 #ifdef DEBUG
@@ -75,13 +68,6 @@ MatchResult MatchWhen(const Thread & start,
 
         if (pred(t))
         {
-#ifdef DEBUG_STATS
-            generated_threads = processed_threads + T.size();
-            std::wcout << "Generated Threads: " << generated_threads
-                       << "\tProcessed Threads: " << processed_threads
-                       << std::endl;
-            generated_threads = processed_threads = 0;
-#endif
 #ifdef DEBUG
             if (debug_indent.size() >= 2)
                 debug_indent.pop_back(), debug_indent.pop_back();
@@ -106,43 +92,23 @@ MatchResult MatchWhen(const Thread & start,
             int lookaround_id = t.state->Tags().GetLookAroundTag().id;
             bool is_forward = t.state->Tags().GetLookAroundTag().is_forward;
             Thread start = {t.input, t.state->Out(), t.capture};
-#ifdef DEBUG_STATS
-            stat_save.push_back(generated_threads);
-            stat_save.push_back(processed_threads);
-            generated_threads = processed_threads = 0;
-#endif
-            if (MatchWhen(start,
-                          [lookaround_id,
-                           &t](const Thread & current) mutable -> bool {
-                              bool good =
-                                  current.state->Tags().HasLookAroundTag() &&
-                                  !current.state->Tags()
-                                       .GetLookAroundTag()
-                                       .is_begin &&
-                                  current.state->Tags().GetLookAroundTag().id ==
-                                      lookaround_id;
-                              if (good)
-                                  t.state = current.state;
-                              return good;
-                          },
-                          is_forward)
-                    .Matched())
+            if (!MatchWhen(
+                     start,
+                     [lookaround_id,
+                      &t](const Thread & current) mutable -> bool {
+                         bool good = current.state->Tags().HasLookAroundTag() &&
+                             !current.state->Tags()
+                                  .GetLookAroundTag()
+                                  .is_begin &&
+                             current.state->Tags().GetLookAroundTag().id ==
+                                 lookaround_id;
+                         if (good)
+                             t.state = current.state;
+                         return good;
+                     },
+                     is_forward)
+                     .Matched())
             {
-#ifdef DEBUG_STATS
-                processed_threads = stat_save.back();
-                stat_save.pop_back();
-                generated_threads = stat_save.back();
-                stat_save.pop_back();
-#endif
-            }
-            else
-            {
-#ifdef DEBUG_STATS
-                processed_threads = stat_save.back();
-                stat_save.pop_back();
-                generated_threads = stat_save.back();
-                stat_save.pop_back();
-#endif
                 continue;
             }
         }
@@ -158,44 +124,24 @@ MatchResult MatchWhen(const Thread & start,
 
             int atomic_id = t.state->Tags().GetAtomicTag().atomic_id;
             Thread start = {t.input, t.state->Out(), t.capture};
-#ifdef DEBUG_STATS
-            stat_save.push_back(generated_threads);
-            stat_save.push_back(processed_threads);
-            generated_threads = processed_threads = 0;
-#endif
-            if (MatchWhen(
-                    start,
-                    [atomic_id, &t](const Thread & current) mutable -> bool {
-                        bool good = current.state->Tags().HasAtomicTag() &&
-                            !current.state->Tags().GetAtomicTag().is_begin &&
-                            current.state->Tags().GetAtomicTag().atomic_id ==
-                                atomic_id;
-                        if (good)
-                        {
-                            t.input = current.input;
-                            t.state = current.state;
-                            current.capture.CopyTo(t.capture);
-                        }
-                        return good;
-                    },
-                    true)
-                    .Matched())
+            if (!MatchWhen(
+                     start,
+                     [atomic_id, &t](const Thread & current) mutable -> bool {
+                         bool good = current.state->Tags().HasAtomicTag() &&
+                             !current.state->Tags().GetAtomicTag().is_begin &&
+                             current.state->Tags().GetAtomicTag().atomic_id ==
+                                 atomic_id;
+                         if (good)
+                         {
+                             t.input = current.input;
+                             t.state = current.state;
+                             current.capture.CopyTo(t.capture);
+                         }
+                         return good;
+                     },
+                     true)
+                     .Matched())
             {
-#ifdef DEBUG_STATS
-                processed_threads = stat_save.back();
-                stat_save.pop_back();
-                generated_threads = stat_save.back();
-                stat_save.pop_back();
-#endif
-            }
-            else
-            {
-#ifdef DEBUG_STATS
-                processed_threads = stat_save.back();
-                stat_save.pop_back();
-                generated_threads = stat_save.back();
-                stat_save.pop_back();
-#endif
                 continue;
             }
         }
@@ -239,7 +185,7 @@ MatchResult MatchWhen(const Thread & start,
                 t.id_to_repcnt.back().second += 1;
 
                 auto outs = t.state->MultipleOut();
-                assert(outs.size() == 2);
+                RAssert(outs.size() == 2);
 
                 size_t current = t.id_to_repcnt.back().second;
 #ifdef DEBUG
@@ -254,11 +200,21 @@ MatchResult MatchWhen(const Thread & start,
                 }
                 else if (!repeat.has_max || current < repeat.max)
                 {
-                    T.push_back({t.input, outs[1], t.capture, t.id_to_repcnt});
-                    T.back().id_to_repcnt.pop_back();
-                    T.push_back({t.input, outs[0], t.capture, t.id_to_repcnt});
+                    if (repeat.qualifier == RepeatTag::GREEDY)
+                    {
+                        T.push_back({t.input, outs[1], t.capture, t.id_to_repcnt});
+                        T.back().id_to_repcnt.pop_back();
+                        T.push_back({t.input, outs[0], t.capture, t.id_to_repcnt});
+                    }
+                    else
+                    {
+                        assert(repeat.qualifier == RepeatTag::RELUCTANT);
+                        T.push_back({ t.input, outs[0], t.capture, t.id_to_repcnt });
+                        T.push_back({ t.input, outs[1], t.capture, t.id_to_repcnt });
+                        T.back().id_to_repcnt.pop_back();
+                    }
                 }
-                else
+                else if (current == repeat.max)
                 {
                     T.push_back({t.input, outs[1], t.capture, t.id_to_repcnt});
                     T.back().id_to_repcnt.pop_back();
@@ -281,13 +237,6 @@ MatchResult MatchWhen(const Thread & start,
         std::wcout << L" ]" << std::endl;
 #endif
     }
-
-#ifdef DEBUG_STATS
-    generated_threads = processed_threads + T.size();
-    std::wcout << "Generated Threads: " << generated_threads
-               << "\tProcessed Threads: " << processed_threads << std::endl;
-    generated_threads = processed_threads = 0;
-#endif
 #ifdef DEBUG
     if (debug_indent.size() >= 2)
         debug_indent.pop_back(), debug_indent.pop_back();
@@ -295,21 +244,41 @@ MatchResult MatchWhen(const Thread & start,
     return MatchResult(Capture(start.capture.Origin()), false);
 }
 
-MatchResult EnfaMatcher::Match(RView text) const {
-    Thread t = {LexMatcher(text), start_, Capture(text)};
+MatchResult MatchPrefix(RView text, const EnfaState * start) {
+    Thread t = {LexMatcher(text), start, Capture(text)};
     return MatchWhen(
         t,
         [](const Thread & current) -> bool { return current.state->IsFinal(); },
         true);
 }
 
+MatchResult MatchWhole(RView text, const EnfaState * start) {
+    Thread t = {LexMatcher(text), start, Capture(text)};
+    return MatchWhen(t,
+                     [](const Thread & current) -> bool {
+                         if (current.state->IsFinal())
+                         {
+                             auto range =
+                                 current.capture.Group(0).GetLastRange();
+                             return (size_t)(range.second - range.first) ==
+                                 current.input.Origin().size();
+                         }
+                         return false;
+                     },
+                     true);
+}
+
+MatchResult EnfaMatcher::Match(RView text) const {
+    return MatchWhole(text, start_);
+}
+
 std::vector<MatchResult> EnfaMatcher::MatchAll(RView text) const {
     std::vector<MatchResult> matches;
 
     RView match_text = text;
-    while (!match_text.empty())
+    while (true)
     {
-        MatchResult m = Match(match_text);
+        MatchResult m = MatchPrefix(match_text, start_);
         size_t scanned = 1;
         if (m.Matched())
         {
@@ -317,7 +286,11 @@ std::vector<MatchResult> EnfaMatcher::MatchAll(RView text) const {
             auto range = m.GetCapture().Group(0).GetLastRange();
             scanned = std::max(scanned, range.second - range.first);
         }
-        match_text.PopFront(scanned);
+
+        if (match_text.empty())
+            break;
+        else
+            match_text.PopFront(scanned);
     }
 
     return matches;

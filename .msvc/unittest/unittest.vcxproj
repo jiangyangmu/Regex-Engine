@@ -19,39 +19,36 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Source\MatchResult.h" />
+    <ClCompile Include="..\..\Source\CharMatcher.cpp" />
+    <ClCompile Include="..\..\Source\Enfa.cpp" />
+    <ClCompile Include="..\..\Source\EnfaMatcher.cpp" />
+    <ClCompile Include="..\..\Source\Postfix.cpp" />
+    <ClCompile Include="..\..\Source\RegexCompiler.cpp" />
+    <ClCompile Include="..\..\Source\stdafx.cpp" />
+    <ClCompile Include="..\..\Source\unittest.cpp" />
+  </ItemGroup>
+  <ItemGroup>
     <ClInclude Include="..\..\Source\CharMatcher.h" />
+    <ClInclude Include="..\..\Source\Enfa.h" />
     <ClInclude Include="..\..\Source\EnfaMatcher.h" />
     <ClInclude Include="..\..\Source\EnfaTag.h" />
-    <ClInclude Include="..\..\Source\RegexCompiler.h" />
-    <ClInclude Include="..\..\Source\Enfa.h" />
+    <ClInclude Include="..\..\Source\Input.h" />
     <ClInclude Include="..\..\Source\IntType.h" />
+    <ClInclude Include="..\..\Source\MatchResult.h" />
     <ClInclude Include="..\..\Source\Postfix.h" />
+    <ClInclude Include="..\..\Source\RegexCompiler.h" />
+    <ClInclude Include="..\..\Source\RegexInput.h" />
     <ClInclude Include="..\..\Source\RegexSyntax.h" />
     <ClInclude Include="..\..\Source\stdafx.h" />
     <ClInclude Include="..\..\Source\StringView.h" />
     <ClInclude Include="..\..\Source\targetver.h" />
     <ClInclude Include="..\..\Source\util.h" />
   </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\Source\CharMatcher.cpp" />
-    <ClCompile Include="..\..\Source\EnfaMatcher.cpp" />
-    <ClCompile Include="..\..\Source\RegexCompiler.cpp" />
-    <ClCompile Include="..\..\Source\Enfa.cpp" />
-    <ClCompile Include="..\..\Source\main.cpp" />
-    <ClCompile Include="..\..\Source\Postfix.cpp" />
-    <ClCompile Include="..\..\Source\stdafx.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\Document\DESIGN.md" />
-    <None Include="..\..\Document\input_DESIGN.md" />
-    <None Include="..\..\Document\TODO.md" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{5FD83734-97DA-4750-A07F-7047A6F6F448}</ProjectGuid>
+    <ProjectGuid>{93D59EA5-12C7-4951-A647-0F8AEEFCDB7E}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>re</RootNamespace>
+    <RootNamespace>unittest</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -99,21 +96,39 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LinkIncremental>true</LinkIncremental>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)..\Build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(SolutionDir)..\Build\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Create</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>..\Source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <PostBuildEvent>
+      <Command>$(TargetPath)</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -127,25 +142,6 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <ClCompile>
-      <PrecompiledHeader>Create</PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <Optimization>Disabled</Optimization>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\Source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-    <PostBuildEvent>
-      <Command>
-      </Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -167,7 +163,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <PrecompiledHeader>Create</PrecompiledHeader>
+      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>

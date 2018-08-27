@@ -75,34 +75,49 @@ private:
     void repeat() {
         if (regex_.Match('*'))
         {
-            Repeat r = {repeat_id_gen_++, 0, 0, false};
+            Repeat r = {repeat_id_gen_++, 0, 0, false, Repeat::GREEDY};
+            if (regex_.Match('?'))
+                r.qualifier = Repeat::RELUCTANT;
             nl_.emplace_back(r);
         }
         else if (regex_.Match('{'))
         {
-            Repeat r = {repeat_id_gen_++, 0, 0, false};
+            Repeat r = {repeat_id_gen_++, 0, 0, false, Repeat::GREEDY};
 
             regex_.MatchUInt32(&r.min);
-            assert(regex_.Match(','));
 
-            if (regex_.MatchUInt32(&r.max))
+            if (regex_.Match('}'))
             {
                 r.has_max = true;
-                assert(r.max >= r.min);
+                r.max = r.min;
             }
+            else
+            {
+                RAssert(regex_.Match(','));
 
-            assert(regex_.Match('}'));
+                if (regex_.MatchUInt32(&r.max))
+                {
+                    r.has_max = true;
+                    RAssert(r.max >= r.min);
+                }
+
+                RAssert(regex_.Match('}'));
+            }
+            if (regex_.Match('?'))
+                r.qualifier = Repeat::RELUCTANT;
 
             nl_.emplace_back(r);
         }
+        // prohibit nested repeat
+        RAssert(!regex_.TryMatchAny(L"{*"));
     }
     bool item() {
         if (regex_.Match('\\'))
         {
             size_t backref_id = 10;
-            assert(regex_.MatchUInt32(&backref_id));
-            assert(backref_id <= 9);
-            BackReference b = { (int)backref_id };
+            RAssert(regex_.MatchUInt32(&backref_id));
+            RAssert(backref_id <= 9);
+            BackReference b = {(int)backref_id};
             nl_.emplace_back(b);
             repeat();
             return true;
@@ -127,7 +142,7 @@ private:
         }
     }
     void concat() {
-        assert(item());
+        RAssert(item());
         while (item())
             nl_.emplace_back(PostfixNode::CONCAT);
     }
@@ -151,12 +166,12 @@ private:
         }
     }
     void group() {
-        assert(regex_.Match('('));
+        RAssert(regex_.Match('('));
 
         Group g;
 
         g.type = Group::CAPTURE;
-        if (regex_.MatchTwo('?',':'))
+        if (regex_.MatchTwo('?', ':'))
             g.type = Group::NON_CAPTURE;
         else if (regex_.MatchTwo('?', '='))
             g.type = Group::LOOK_AHEAD, g.lookaround_id = lookaround_id_gen_++;
@@ -171,7 +186,7 @@ private:
 
         nl_.emplace_back(g);
 
-        assert(regex_.Match(')'));
+        RAssert(regex_.Match(')'));
     }
 
     int capture_id_gen_;
@@ -262,35 +277,35 @@ std::vector<PostfixNode> FlipPostfix(const std::vector<PostfixNode> & nl) {
                 tree.push_back(tree_alloc.back().get());
                 break;
             default:
-                assert(false);
+                RAssert(false);
                 break;
         }
     }
 
-    assert(tree.size() == 1);
+    RAssert(tree.size() == 1);
     // std::wcout << L"Before:" << tree.front()->PrettyDebugString() <<
     // std::endl;
 
     // do flips.
     for (PostfixTreeNode * root : flip)
     {
-        assert(root->right == nullptr);
+        RAssert(root->right == nullptr);
         std::vector<PostfixTreeNode *> stack = {root->left};
         while (!stack.empty())
         {
             PostfixTreeNode * n = stack.back();
             stack.pop_back();
-            assert(n);
+            RAssert(n);
             switch (n->node->type)
             {
                 case PostfixNode::CHAR_INPUT:
                 case PostfixNode::BACKREF_INPUT:
-                    assert(n->left == nullptr);
-                    assert(n->right == nullptr);
+                    RAssert(n->left == nullptr);
+                    RAssert(n->right == nullptr);
                     break;
                 case PostfixNode::REPEAT:
                     stack.push_back(n->left);
-                    assert(n->right == nullptr);
+                    RAssert(n->right == nullptr);
                     break;
                 case PostfixNode::CONCAT:
                     std::swap(n->left, n->right);
@@ -305,10 +320,10 @@ std::vector<PostfixNode> FlipPostfix(const std::vector<PostfixNode> & nl) {
                     if (n->node->group.type != Group::LOOK_AHEAD &&
                         n->node->group.type != Group::LOOK_BEHIND)
                         stack.push_back(n->left);
-                    assert(n->right == nullptr);
+                    RAssert(n->right == nullptr);
                     break;
                 default:
-                    assert(false);
+                    RAssert(false);
                     break;
             }
         }

@@ -21,7 +21,7 @@ EnfaState * PostfixToEnfa(std::vector<PostfixNode> & nl) {
         {
             case PostfixNode::NULL_INPUT:
                 // TODO: support null branch
-                assert(false);
+                RAssert(false);
                 break;
             case PostfixNode::CHAR_INPUT:
                 PUSH(EnfaStateBuilder::Char(n.chr));
@@ -73,7 +73,7 @@ EnfaState * PostfixToEnfa(std::vector<PostfixNode> & nl) {
                     sp.out->Tags().SetAtomicTag({n.group.atomic_id, false});
                 }
                 else
-                    assert(false);
+                    RAssert(false);
                 PUSH(sp);
                 break;
             default:
@@ -83,7 +83,7 @@ EnfaState * PostfixToEnfa(std::vector<PostfixNode> & nl) {
 
     StatePort sp;
     sp = POP();
-    assert(st.empty());
+    RAssert(st.empty());
     sp.out->SetFinal();
 
 #undef POP
@@ -104,13 +104,13 @@ EnfaMatcher RegexCompiler::CompileToEnfa(RString regex) {
             std::wcout << n.DebugString() << " ";
         std::wcout << std::endl;
 #endif
+
         nl = FlipPostfix(nl);
 #ifdef DEBUG
         for (auto n : nl)
             std::wcout << n.DebugString() << " ";
         std::wcout << std::endl;
 #endif
-
         start = PostfixToEnfa(nl);
 #ifdef DEBUG
         std::wcout << EnfaState::DebugString(start) << std::endl;

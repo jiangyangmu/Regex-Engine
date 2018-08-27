@@ -49,6 +49,10 @@ struct Repeat {
     size_t min;
     size_t max;
     bool has_max;
+    enum Qualifier {
+        GREEDY,
+        RELUCTANT
+    } qualifier;
 };
 
 //#define DEBUG

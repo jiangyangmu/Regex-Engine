@@ -4,15 +4,25 @@ Regular Expression Engine
 Why is a regex engine useful?
 ---
 
-1. It can answer whether a string matches a pattern.
-2. It can describe complex patterns, with the strong expression capability
-   provided by regular(?) grammer.
-3. By interpreting the structure of a string, it can extract the interesting
-   part from the string. For example, the username field in an email address,
-   after it verifies that the string is an email address. In compiler
-   construction, it can also be used to build a fast lexer, with a few lines
-   of code.
-4. To extract, edit, replace, or delete text substrings.
+0. It (often) efficiently implements a descriptive regular-expression notation.
+   Essentially a compiler of regular-expression.
+   * It can answer whether a string matches a pattern.
+   * It can describe complex patterns, with the strong expression capability
+     provided by regular(?) grammer.
+   * By interpreting the structure of a string, it can extract the interesting
+     part from the string. For example, the username field in an email address,
+     after it verifies that the string is an email address. In compiler
+     construction, it can also be used to build a fast lexer, with a few lines
+     of code.
+   * To extract, edit, replace, or delete text substrings.
+1. It can be a convenient "recognizer" development tool. Fast trial-and-error
+   without writing any code, just modify the regular-expression.
+
+Examples
+---
+
+* Keyword search in a giant document: grep.
+* Tokenization and lexical analysis: lex.
 
 The elements of regex engine
 ---
@@ -37,16 +47,28 @@ Design
     * backtracking
   * repeat: ab*
     * backtracking
-    * repeat range: a{1,2}b
+    * repeat range
+      * equal: a{2}b
+      * no less than: a{2,}b
+      * no more than: a{,2}b
+      * inclusive within: a{2,4}b
+    * flavor
+      * greedy (default)
+      * reluctant: a*?b, a{1,2}?b
+      * possessive: use atomic group
   * group: a(bc)
     * capture capability
       * nesting capture: a(b(c))
-    * [capture] back reference: a(bc)\1
+      * back reference: a(bc)\1
     * non-capture notation: a(?:bc)
        * not occupy group id.
     * non-consumption capability
-    * [non-consumption] lookaround assertion: a(?=yes)y a(?<no)n
-    * atomic capability (no backtracking)
+      * lookaround assertion: a(?=yes)y a(?<no)n
+    * atomic capability (disable inner backtracking)
+      * disable backtracking in repeat: (?>a*)ab
+      * disable backtracking in alter: (?>a|ab)b
+* Match
+  * return the first match
 * Algorithm
   * regex => epsilon-NFA
   * epsilon-NFA => DFA
@@ -55,7 +77,6 @@ Design
 
 * Advanced features
   * [group] matching configuration.
-  * [repeat] greedy, reluctant, possessive.
   * [alter] empty match (e.g. "(a|)")
 
 * Easy implement features
@@ -65,6 +86,8 @@ Design
 
 Implementation
 ---
+
+* Input model - array of memory blocks
 
 > ASCII Alphabet + Regex
 

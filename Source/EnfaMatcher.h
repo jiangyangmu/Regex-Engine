@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Enfa.h"
-#include "StringView.h"
 #include "MatchResult.h"
+#include "StringView.h"
 
 class EnfaMatcher {
     friend class RegexCompiler;

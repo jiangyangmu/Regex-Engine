@@ -54,12 +54,20 @@ private:
 
 class Capture {
 public:
+    typedef std::map<size_t, CaptureGroup>::const_iterator group_iterator;
+
     explicit Capture(RView origin)
         : origin_(origin) {
     }
 
     RView Origin() const {
         return origin_;
+    }
+    group_iterator GroupBegin() const {
+        return capture_groups_.begin();
+    }
+    group_iterator GroupEnd() const {
+        return capture_groups_.end();
     }
     const CaptureGroup & Group(size_t group_id) const {
         assert(group_id < capture_groups_.size());
